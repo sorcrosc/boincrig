@@ -1,0 +1,600 @@
+#!/bin/bash
+
+# Funzione di selezione switch log ed opzioni
+cc () {
+
+# Funzione cancella linea di configurazione corrispondente al paremetro _chiave_
+del-cc () {
+ed -s $WORKING_DIR/cc_config.xml << DEL
+g/$1/d
+w
+DEL
+}
+
+# Funzione aggiunge linea di configurazione corrispondente a parametri _tipo_(log_flags/options), _chiave_, _valore_
+add-cc () {
+ed -s $WORKING_DIR/cc_config.xml << ADD
+/<$1>/a
+	<$2>$3</$2>
+.
+w
+ADD
+}
+
+# Se esiste il file di configurazione controlla se gli switch sono attivati, altrimenti crea un file pulito
+if [ -f $WORKING_DIR/cc_config.xml ]; then
+	# Se lo switch è impostato lo toglie dalla lista
+	for l in $logswitch; do
+		[ "$(grep "<$l>1" $WORKING_DIR/cc_config.xml)" ] && logswitch="${logswitch/$l/}"
+	done
+	for o in $optswitch; do
+		[ "$(grep "<$o>1" $WORKING_DIR/cc_config.xml)" ] && optswitch="${optswitch/$o/}"
+	done
+	# Se i tag tipo options e log_flags non sono presenti nel file li aggiunge
+	for tipo in options log_flags; do
+		[ -z "$(grep "<$tipo>" $WORKING_DIR/cc_config.xml)" ] && add-cc cc_config $tipo '
+	'
+	done
+else
+	cat > $WORKING_DIR/cc_config.xml << CC_CONFIG
+<cc_config>
+	<log_flags>
+        </log_flags>
+        <options>
+        </options>
+</cc_config>
+CC_CONFIG
+
+fi
+}
+
+# Funzione di attivazione log ed opzioni
+cc_apply () {
+if [ "${logswitch/ /}${optswitch/ /}" ]; then
+
+	# Pulisce il file da linee presenti ed imposta gli switch
+        for l in $logswitch; do
+		del-cc $l
+		add-cc log_flags $l 1
+        done
+	for o in $optswitch; do
+		del-cc $o
+		add-cc options $o 1
+        done
+
+	echo -e "\nAttivato switch di log/opzioni $(printf '\"%s\" ' $logswitch $optswitch)"
+
+	# Se degli switch sono stati impostati da questo script li toglie prima di uscire
+	resetswitch () {
+	for lo in $logswitch $optswitch; do
+		del-cc $lo
+	done && echo -e '\nDisattivato switch di log/opzioni attivati precedentemente'
+	boinccmd --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
+	}
+
+	trap 'resetswitch;exit 0' SIGINT SIGTERM
+	boinccmd --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
+else
+	trap ':;exit 0' SIGINT SIGTERM
+fi
+}
+
+project_lists () {
+# Lista progetti con indirizzi URL
+projects_list="$(boinccmd --passwd "$RPC_PASSWD" --get_simple_gui_info | grep -B 1000 -m 1 '= Tasks =' | grep --no-group-separator -A 2 '^[1-9][0-9]*)')"
+# Lista dei nomi dei progetti
+project_names="$(echo "$projects_list" | grep 'name' | sed 's/.*: //')"
+# Lista dei sottoprogetti con il progetto a cui appartengono
+subprojects_list="$(boinccmd --passwd "$RPC_PASSWD" --get_state | grep -A 1000 -m 1 '= Applications =' | grep -B 1000 -m 1 '= Application versions =')"
+}
+
+# Scelta progetto
+project () {
+project_lists
+if [ "$project" ]; then
+	[ -z "$(echo "$project_names" | grep "^$project$")" ] && echo "Progetto "$project" non valido" >&2 && exit 1
+else
+	echo ''
+	echo 'Progetti:'
+	IFS='
+'
+PS3='#>'
+	select s in $project_names; do
+		if [ "$s" ]; then
+			project="$s"
+			break
+		else
+			echo 'Scelta non valida' >&2
+		fi
+	done
+	echo "$project"
+	IFS=' 	
+'
+fi
+url=$(echo "$projects_list" | grep -A 1 ": $project$" | grep 'master URL' | sed 's/.*: //')
+}
+
+
+# Scelta sottoprogetto
+subproject () {
+project
+if [ "$subproject" ]; then
+	for sp in $subproject; do
+	[ -z "$(echo "$subprojects_list" | grep " $sp$")" ] && echo "Applicazione $sp non valida" >&2 && exit 1
+#	[ -z "$(echo "$subprojects_list" | grep " $subproject$")" ] && echo "Applicazione $subproject non valida" >&2 && exit 1
+	done
+elif [ ! "$interactive" = no ]; then
+	if ! echo "$subprojects_list" | grep ": $project$" > /dev/null; then
+		echo "Non ci sono applicazioni per $project"
+		echo ''
+		exit 0
+	fi
+
+	# Funzione di selezione
+	sele () {
+	unset kn
+	for k in "$@"; do
+		echo $((++kn))\) $k
+	done
+	chmsg='[Tutti]'
+	while true; do
+		unset ch
+		read -p "$chmsg$PS3" chn
+		[ -z "$chn" ] && return
+		((chn<1)) && echo 'Immettere un numero' >&2 && continue
+		unset kn
+		for k in "$@"; do
+			((++kn==chn)) && ch="$k" && break
+		done
+		if [ "$ch" ]; then
+			chs="${chs:+$chs }$ch"
+			chmsg='[Finito]'
+		else
+			echo 'Scelta non valida' >&2
+		fi
+	done
+	}
+
+	echo ''
+	echo 'Applicazioni:'
+	IFS='
+'
+	sele $(echo "$subprojects_list" | grep -B 1 ": $project$" | grep 'name' | sed 's/.*: //')
+	subproject="$chs"
+	[ "$subproject" ] && echo $subproject
+	IFS=' 	
+'
+fi
+}
+
+
+suspend () {
+	logswitch='checkpoint_debug'
+        optswitch=''
+        cc
+       	subproject
+	# Chiede percmin e percmax solo se non sono stati passati come opzioni o si è in modalità interattiva, poi ne controlla la validità
+	[ -z "$percmin$percmax" ] && [ ! "$interactive" = no ] && echo ''
+	[ -z "$percmin" ] && [ ! "$interactive" = no ] && read -p "Percentuale minima per sospensione? [0] " percmin
+	[ "$percmin" ] && [[ ! "$percmin" =~ ^0*(([0-9]?[0-9])|(100))$ ]] && echo 'Valore percentuale minima non valido' >&2 && exit 1
+	[ -z "$percmax" ] && [ ! "$interactive" = no ] && read -p "Percentuale massima per sospensione? [100] " percmax
+	[ "$percmax" ] && [[ ! "$percmax" =~ ^0*(([0-9]?[0-9])|(100))$ ]] && echo 'Valore percentuale massima non valido' >&2 && exit 1
+	[ ! "$interactive" = no ] && echo '' && read -p 'Procedo? [Si]' startno
+	[ "$startno" ] && exit 1 || echo "In esecuzione"
+	cc_apply
+	echo ''
+	while read line; do
+		if	[[ "$line" =~ \["$project"\].*\[checkpoint\] ]]; then
+			task_name=$(echo "$line" | sed 's/.*result \| checkpointed$//g')
+			for slot_dir in $WORKING_DIR/slots/*; do
+				if grep $task_name $slot_dir/boinc_task_state.xml > /dev/null 2>&1; then
+					# Continua se uno dei sottoprogetti corrisponde o se non ne sono stati selezionati
+					if for sp in $subproject; do
+							grep "<app_name>$sp<" $slot_dir/init_data.xml > /dev/null && break
+						done; then
+						taskperc=$(cat $slot_dir/boinc_task_state.xml | grep 'fraction_done' | sed -r 's/(.*)([0-9])(\.)([0-9][0-9])(.*)/\2\4/')
+						if [ $taskperc -ge ${percmin:-0} -a $taskperc -le ${percmax:-100} ]; then
+							sleep 2
+							# Manca verifica: il comando di sospensione potrebbe essere lanciato dopo il termine della wu
+							boinccmd --passwd "$RPC_PASSWD" --task $url $task_name suspend
+							echo "sospesa    al $((10#$taskperc))%	task $task_name"
+						else
+							echo "checkpoint al $((10#$taskperc))%	task $task_name"
+						fi
+					fi
+					break
+				fi
+			done
+		fi
+	done < <(tailf -0 $STDOUT_FILE)
+}
+
+
+bunker () {
+	logswitch='sched_op_debug'
+	optswitch='fetch_on_update'
+	cc
+	project
+	# Attiva il progetto ed abilita la richiesta di nuove tasks
+	boinccmd --passwd "$RPC_PASSWD" --project $url resume
+	boinccmd --passwd "$RPC_PASSWD" --project $url allowmorework
+	ncpus_orig=$(boinccmd --get_host_info | grep CPUS | sed 's/.*: //')
+	# Chiede ncpus solo se non è stato passato come opzione o si è in modalità interattiva
+	[ -z "$ncpus" ] && [ ! "$interactive" = no ] && echo '' && read -p "Quante cpu devo simulare? [$ncpus_orig (inalterato)] " ncpus
+	# Se è stato impostato ncpus ne controlla la validità
+	[ "$ncpus" ] && [[ ! "$ncpus" =~ ^[0-9]+$ ]] && echo 'ncpus non valido' >&2 && exit 1
+	[ "$ncpus" ] &&	((ncpus<=ncpus_orig)) && echo "Ignoro ncpus $ncpus perché inferiore o uguale ai cores reali" && unset ncpus
+	((ncpus>ncpus_MAX)) && echo "Il valore massimo per ncpus è $ncpus_MAX" && ((ncpus=ncpus_MAX))
+	[ ! "$interactive" = no ] && echo '' && read -p 'Procedo? [Si]' startno
+	[ "$startno" ] && exit 1 || echo "In esecuzione"
+	cc_apply
+
+	# Funzione suspend tasks. Argomento _suspend|resume_, eventualmente gli altri di 'boinccmd --task'
+	susptasks () {
+		for task_name in $susptasks; do
+			boinccmd --passwd "$RPC_PASSWD" --task $url $task_name $1
+		done
+		[ "$1" = suspend ] && echo 'Sospese tasks che lo erano in precedenza' || :
+		[ "$1" = resume ] && echo 'Riprese tasks in sospensione' || :
+		}
+
+	# Funzione imposta ncpus. Argomento _ncpus_
+	# Il valore ncpus -1 non sembra avere effetto
+	setncpus () {
+		del-cc ncpus
+		add-cc options ncpus $1
+		boinccmd --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
+		[ "$1" -eq "$ncpus_orig" ] && echo "Ripristinato ncpus a $ncpus_orig" && del-cc ncpus || :
+		[ "$1" -eq "$ncpus_prog" ] && echo "Impostato ncpus a $ncpus_prog" || :
+		}
+
+	# Funzione programma ncpus per il ciclo successivo
+	progncpus () {
+		if [ -z "$ncpus" ] || ((ncpus_prog==ncpus)); then
+			((ncpus<ncpus_MAX)) && echo "E' possibile che si ottenga ulteriore lavoro aumentando ncpus"
+			break 2
+		elif [ -z "$ncpus_prog" ] || ((ncpus_prog<ncpus)); then
+			echo 'Ritento aumentando ncpus'
+			ncpus_prog=$((${ncpus_prog:-$ncpus_orig}+$ncpus_orig))
+			((ncpus_prog>ncpus)) && ((ncpus_prog=ncpus))
+			unset got0count
+		fi
+		}
+
+	# Funzione imposta timeout per riavvio del ciclo di update. In background per poter continuare a leggere i log
+	tailtimeout () {
+		# Lista tutti i processi tail nipoti del processo principale
+		tailpid="$(pgrep -d ' ' -P $(pgrep -d ',' -P $PID) tailf)"
+		# Se è stato forzato con --delay non è interrompibile
+		if [ "$upforcedelay" ]; then
+			echo "Prossimo update forzato tra $upforcedelay secondi ($(date --date=@$(($(date +%s)+upforcedelay)) +%T))"
+			sleep $upforcedelay && kill -s SIGPIPE $tailpid 2> /dev/null &
+		# Timeout generico. Viene interrotto se il progetto notifica il tempo di attesa
+		else
+			(
+			trap 'exit 0' SIGTERM
+			sleep $timeoutdelay
+			if kill -0 $PID 2> /dev/null; then
+				echo 'Raggiunto timeout'
+				kill -s SIGPIPE $tailpid
+			fi
+			) &
+			timeoutpid=$!
+		fi
+		}
+
+
+	# Inizio ciclo di update del progetto
+	while true; do
+		echo ''
+
+		# Riprende le task in sospensione
+		susptasks=$(boinccmd --passwd "$RPC_PASSWD" --get_tasks | grep -B 11 'suspended.*yes' | grep -B 2 "$url" | grep '^ *name:' | sed 's/.*: //')
+		[ "$susptasks" ] && susptasks resume && trap "susptasks suspend;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
+
+		# Manipola ncpus
+		[ "$ncpus_prog" ] && setncpus $ncpus_prog && trap "setncpus $ncpus_orig;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
+
+		boinccmd --passwd "$RPC_PASSWD" --project $url update && echo -e "Update del progetto"
+
+		# Legge log per risultato richiesta
+		while read line; do
+
+		if [[ "$line" =~ \["$project"\] ]]; then
+
+			#Requesting new tasks
+			if [[ "$line" =~ 'Requesting new tasks' ]]; then
+				echo "Richiesta tasks $(echo "$line" | sed 's/.*tasks for //' | sed 's/and/e/')"
+				[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
+				[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+
+			#Not requesting tasks
+			elif [[ "$line" =~ 'Not requesting tasks' ]]; then
+				echo 'Nessuna richiesta'
+				[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
+				[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+				case "$line" in
+					*'non CPU intensive')
+						echo 'Progetto "non cpu intensive"'
+						break 2
+						;;
+					*'suspended via Manager')
+						echo "Il progetto è stato sospeso. E' necessario riattivarlo"
+						;;
+					#*'master URL fetch pending')
+					#*'scheduler RPC backoff')
+					*'"no new tasks" requested via Manager')
+						echo "La richiesta di tasks è stata disabilitata. E' necessario riabilitarla"
+						;;
+					#*'some download is stalled')
+					#*'some task is suspended via Manager')
+					#*'too many uploads in progress')
+					#*'project is not highest priority')
+					*'too many runnable tasks')
+						echo 'Raggiunto limite massimo di tasks da eseguire'
+						break 2
+						;;
+					*"don't need")
+						echo "Non c'è necessità di ulteriore lavoro"
+						progncpus
+						;;
+				esac
+			#Scheduler request failed
+			elif	[[ "$line" =~ 'Scheduler request failed' ]]; then
+				echo 'Richiesta fallita'
+				# Commenti aggiuntivi sono tutti errori http
+				[[ "$line" =~ failed: ]] && echo 'Problema di rete'
+				#if	[[ "$line" =~ 'Timeout was reached' ]]; then
+				#elif	[[ "$line" =~ 'Error 403' ]]; then
+				tailtimeout
+
+			#Scheduler request completed
+			elif	[[ "$line" =~ 'Scheduler request completed' ]]; then
+				if	[[ "$line" =~ 'got '.*' new task' ]]; then
+					gottasks=$(echo "$line" | sed 's/.*got \| new task.*//g')
+					totaltasks=$(boinccmd --passwd "$RPC_PASSWD" --get_tasks | grep -c "$url")
+					echo "Ottenuto $gottasks task per un totale di $totaltasks"
+					# Incrementa ncpus al got0 evento consecutivo. Azzera conteggio se ottiene tasks o programma nuovo ncpus
+					if ((gottasks==0)); then
+						((++got0count==got0)) && progncpus
+					else
+						unset got0count
+					fi
+				fi
+				tailtimeout
+
+			elif	[[ "$line" =~ 'last request too recent' ]]; then
+				echo 'Precedente richiesta troppo recente'
+
+			elif	[[ "$line" =~ 'This computer has finished a daily quota of'.*'tasks' ]] || \
+				[[ "$line" =~ '(reached daily quota of'.*'results)' ]]; then
+				echo 'Raggiunto limite giornaliero di tasks'
+				################stampare tempo di attesa
+				break 2
+			#No tasks sent
+			elif	[[ "$line" =~ 'This computer has reached a limit on tasks in progress' ]]; then
+				echo "Raggiunto limite di tasks da eseguire"
+				progncpus
+			elif	[[ "$line" =~ "Tasks won't finish in time" ]]; then
+				# Si ottengono migliori risultati con 6-8 giorni
+				echo 'Diminuire i giorni di work buffer impostati'
+				progncpus
+
+				# Imposta tempo di attesa solo se non è stato forzato con --delay
+			elif	[[ "$line" =~ 'Deferring communication' ]] && [ -z "$upforcedelay" ]; then
+				# Uccide eventuale processo di timeout impostato
+				kill $timeoutpid
+				deferringdelay=$(echo "$line" | sed 's/.*for //')
+				updelay=$((((10#$(date --date=$deferringdelay +%H)*3600))+\
+						((10#$(date --date=$deferringdelay +%M)*60))+\
+							10#$(date --date=$deferringdelay +%S)))
+				echo "Prossimo update tra $updelay secondi ($(date --date=@$(($(date +%s)+updelay)) +%T))"
+				sleep $updelay
+				break
+			fi
+		fi
+		done < <(tailf -0 $STDOUT_FILE)
+	done
+	# Se la funzione esiste significa che ci sono switch impostati, quindi li resetta
+	resetswitch 2> /dev/null
+	echo 'Terminato'
+}
+
+
+# Inizio
+echo ''
+mode=
+while [ "$1" ]; do
+	case "$1" in
+	--help)
+		cat << HELP
+NOME
+        ${0##*/} - Script multifunzione per compiere operazioni su BOINC
+
+SINTASSI
+        ${0##*/} [--dir directory] [--percmin n] [--percmax n] [--ncpus n] [--delay n]
+        ${0##*/} --suspend project [application ...] [--dir directory] [--percmin n] [--percmax n]
+        ${0##*/} --bunker project [--dir directory] [--ncpus n] [--delay n]
+        ${0##*/} --list|--help
+
+DESCRIZIONE
+        Questo script ha due modalità principali:
+
+        suspend
+                Mette in sospensione unità di lavoro di un determinato progetto, o di applicazioni specifiche di tale progetto.
+                La sospensione viene attivata al raggiungimento di un checkpoint.
+                La selezione di unità di lavoro da sospendere avviene in base alla percentuale di avanzamento.
+
+        bunker
+                Accumula unità di lavoro di un determinato progetto effettuando richieste consecutive, con la possibilità di simulare
+                più core di quanti siano realmente a disposizione.
+                Esegue diverse operazioni in modo che le richieste vadano a buon fine:
+                        - Attiva ed abilita la richiesta di lavoro del progetto scelto
+                        - Riattiva le unità di lavoro sospese per renderne possibile la richiesta di nuovo
+                        - Attende il tempo ammesso dal progetto tra un richiesta e l'altra
+                        - Simula una quantità di core progressivamente maggiore ad ogni richiesta per ottenere più lavoro
+
+        Lo script funziona in modalità interattiva, chiedendo al utente i parametri necessari.
+        Se viene specificata da linea di comando la modalità di funzionamento di base non vengono fatte altre richieste all'utente
+        e l'esecuzione procede con i parametri di default, a meno che non siano stati specificati sempre da linea di comando.
+        Alcuni parametri particolari sono accessibili solo da linea di comando.
+        L'esecuzione termina quando il progetto restituisce un messaggio di negazione di ulteriore lavoro o dopo un certo numero di richieste con esito negativo.
+
+OPZIONI
+        --help
+                Stampa questo manuale ed esce.
+
+        --suspend project [application ...]
+                Attiva la modalità sospensione. L'esecuzione procede in modo non interattivo.
+                E' possibile specificare uno o più applicazioni del progetto
+
+        --bunker  project
+                Attiva la modalità bunker. L'esecuzione procede in modo non interattivo.
+
+        --list
+                Restituisce la lista dei progetti con le relative applicazioni ed esce.
+                E' utile per ottenere i nomi da inserire come parametri per suspend e bunker.
+
+        --dir     directory
+                Specifica la directory di lavoro di BOINC.
+
+        --percmin n
+                Imposta la percentuale oltre la quale le unità di lavoro saranno selezionate per essere sospese in modalità suspend.
+
+        --percmax n
+                Imposta la percentuale entro la quale le unità di lavoro saranno selezionate per essere sospese in modalità suspend.
+
+        --ncpus   n
+                Simula un determinato numero di core massimo in modalità bunker.
+
+        --delay   n
+                Forza un determinato intervallo di secondi di attesa tra una richiesta e l'altra in modalità bunker.
+		E'possibile usare i moltiplicatori m ed h per minuti ed ore (esempio: 2m = 2 minuti).
+HELP
+		exit 0
+		;;
+	--dir)
+		shift
+		if [ -d "$1" ]; then
+			BOINCDIR="$1"
+			shift
+		else
+			echo 'La directory specificata non esiste' >&2
+			exit 1
+		fi
+		;;
+	--suspend|--bunker)
+		[ "$mode" ] && echo "Parametro $1 ignorato. E' già stato specificato $mode" >&2 && continue
+		mode=${1#--}
+		shift
+		[ -z "$1" ] || [[ "$1" =~ ^-- ]] && echo "E' necessario specificare un progetto" >&2 && exit 1
+		project="$1"
+		shift
+		[ "$mode" = suspend ] && while [ "$1" ]; do
+			if [[ ! "$1" =~ ^-- ]]; then
+				subproject="$subproject $1"
+				shift
+			fi
+		done
+		interactive=no
+		;;
+	--list)
+		shift
+		[ "$mode" ] && echo "Parametro $1 ignorato. E' già stato specificato $mode" >&2 && continue
+		project_lists
+		IFS='	
+'
+		for project in $project_names; do
+			echo "$project"
+			echo "$subprojects_list" | grep -B 1 ": $project$" | grep name: | sed 's/[^ ]*://'
+			echo ''
+		done
+		exit 0
+		;;
+	--ncpus)
+		shift
+		ncpus="$1"
+		shift
+		;;
+	--delay)
+		shift
+		if [[ "$1" =~ ^[0-9]+[mMhH]?$ ]]; then
+			# Accetta moltiplicatore minuti o ore
+			if [[ "$1" =~ [mM] ]]; then
+				upforcedelay=$((${1%[mM]}*60))
+			elif [[ "$1" =~ [hH] ]]; then
+				upforcedelay=$((${1%[hH]}*3600))
+			else
+				upforcedelay="$1"
+			fi
+			shift
+		else
+			echo 'Valore delay non valido' >&2
+			exit 1
+		fi
+		;;
+	--percmin)
+		shift
+		percmin="$1"
+		shift
+		;;
+	--percmax)
+		shift
+		percmax="$1"
+		shift
+		;;
+	?*)
+		echo "Argomento \"$1\" non valido" >&2
+		exit 1
+		;;
+	esac
+done
+
+PID=$$
+
+DIRS="
+$BOINCDIR
+/var/lib/boinc
+/var/lib/boinc-client
+~/BOINC
+"
+
+IFS='	
+'
+for dir in $DIRS; do
+	[ -d "$dir" ] && WORKING_DIR="$dir" && break
+done
+
+[ -z "$WORKING_DIR" ] && echo Directory di lavoro $BOINCDIR non trovata >&2 && exit 1
+
+IFS=' 	
+'
+
+STDOUT_FILE="$WORKING_DIR/stdoutdae.txt"
+RPC_PASSWD="$(< $WORKING_DIR/gui_rpc_auth.cfg)"
+
+if [ ! -f "$STDOUT_FILE" ]; then
+	echo "File di log $STDOUT_FILE non trovato" >&2
+	exit 1
+fi
+
+# Variabili per modalità bunker
+# Il massimo ncpus attualmente è 64 (boinc 7.3.15, version.h)
+ncpus_MAX=64
+# Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
+timeoutdelay=60
+# Tentativi senza ottenere lavoro prima di aumentare ncpus
+got0=2
+
+if [ -z "$mode" ]; then
+	echo 'Modalità:'
+	select mode in suspend bunker; do
+		[ -z "$mode" ] && echo "Scelta non valida" >&2 && continue
+	break
+	done
+fi
+
+$mode
+
+##############eliminare opzione --passwd dai comandi boinccmd che non la richiedono
+
