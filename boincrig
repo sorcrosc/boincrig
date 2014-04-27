@@ -490,12 +490,16 @@ HELP
 		[ -z "$1" ] || [[ "$1" =~ ^-- ]] && echo "E' necessario specificare un progetto" >&2 && exit 1
 		project="$1"
 		shift
-		[ "$mode" = suspend ] && while [ "$1" ]; do
-			if [[ ! "$1" =~ ^-- ]]; then
-				subproject="$subproject $1"
-				shift
-			fi
-		done
+		if [ "$mode" = suspend ]; then
+			while [ "$1" ]; do
+				if [[ "$1" =~ ^-- ]]; then
+					break
+				else
+					subproject="$subproject $1"
+					shift
+				fi
+			done
+		fi
 		interactive=no
 		;;
 	--list)
