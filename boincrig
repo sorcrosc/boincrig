@@ -257,6 +257,7 @@ bunker () {
 			echo 'Ritento aumentando ncpus'
 			ncpus_prog=$((${ncpus_prog:-$ncpus_orig}+$ncpus_orig))
 			((ncpus_prog>ncpus)) && ((ncpus_prog=ncpus))
+			# Azzera il conteggio dei got0
 			unset got0count
 		fi
 		}
@@ -354,7 +355,7 @@ bunker () {
 					gottasks=$(echo "$line" | sed 's/.*got \| new task.*//g')
 					totaltasks=$(boinccmd --passwd "$RPC_PASSWD" --get_tasks | grep -c "$url")
 					echo "Ottenuto $gottasks task per un totale di $totaltasks"
-					# Incrementa ncpus al got0 evento consecutivo. Azzera conteggio se ottiene tasks o programma nuovo ncpus
+					# Incrementa ncpus al got0 evento consecutivo. Azzera conteggio se ottiene tasks
 					if ((gottasks==0)); then
 						((++got0count==got0)) && progncpus
 					else
@@ -383,7 +384,7 @@ bunker () {
 
 				# Imposta tempo di attesa solo se non è stato forzato con --delay
 			elif	[[ "$line" =~ 'Deferring communication' ]] && [ -z "$upforcedelay" ]; then
-				# Uccide eventuale processo di timeout impostato
+				# Uccide il processo di timeout
 				kill $timeoutpid
 				deferringdelay=$(echo "$line" | sed 's/.*for //')
 				updelay=$((((10#$(date --date=$deferringdelay +%H)*3600))+\
@@ -419,7 +420,7 @@ SINTASSI
         ${0##*/} --list|--help
 
 DESCRIZIONE
-        Questo script ha due modalità principali:
+        Questo script ha queste modalità principali:
 
         suspend
                 Mette in sospensione unità di lavoro di un determinato progetto, o di applicazioni specifiche di tale progetto.
@@ -432,8 +433,9 @@ DESCRIZIONE
                 Esegue diverse operazioni in modo che le richieste vadano a buon fine:
                         - Attiva ed abilita la richiesta di lavoro del progetto scelto
                         - Riattiva le unità di lavoro sospese per renderne possibile la richiesta di nuovo
-                        - Attende il tempo ammesso dal progetto tra un richiesta e l'altra
+                        - Attende il tempo notificato dal progetto tra un richiesta e l'altra
                         - Simula una quantità di core progressivamente maggiore ad ogni richiesta per ottenere più lavoro
+
 
         Lo script funziona in modalità interattiva, chiedendo al utente i parametri necessari.
         Se viene specificata da linea di comando la modalità di funzionamento di base non vengono fatte altre richieste all'utente
@@ -447,7 +449,7 @@ OPZIONI
 
         --suspend project [application ...]
                 Attiva la modalità sospensione. L'esecuzione procede in modo non interattivo.
-                E' possibile specificare uno o più applicazioni del progetto
+                E' possibile specificare uno o più applicazioni del progetto.
 
         --bunker  project
                 Attiva la modalità bunker. L'esecuzione procede in modo non interattivo.
