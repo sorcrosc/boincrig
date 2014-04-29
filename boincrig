@@ -194,7 +194,7 @@ suspend () {
 						done; then
 						taskperc=$(cat $slot_dir/boinc_task_state.xml | grep 'fraction_done' | sed -r 's/(.*)([0-9])(\.)([0-9][0-9])(.*)/\2\4/')
 						if [ $taskperc -ge ${percmin:-0} -a $taskperc -le ${percmax:-100} ]; then
-							sleep 2
+							sleep $suspdelay
 							# Manca verifica: il comando di sospensione potrebbe essere lanciato dopo il termine della wu
 							boinccmd --passwd "$RPC_PASSWD" --task $url $task_name suspend
 							echo "sospesa    al $((10#$taskperc))%	task $task_name"
@@ -225,7 +225,7 @@ bunker () {
 	[ "$ncpus" ] && [[ ! "$ncpus" =~ ^[0-9]+$ ]] && echo 'ncpus non valido' >&2 && exit 1
 	[ "$ncpus" ] &&	((ncpus<=ncpus_orig)) && echo "Ignoro ncpus $ncpus perché inferiore o uguale ai cores reali" && unset ncpus
 	((ncpus>ncpus_MAX)) && echo "Il valore massimo per ncpus è $ncpus_MAX" && ((ncpus=ncpus_MAX))
-	[ ! "$interactive" = no ] && echo '' && read -p 'Procedo? [Si]' startno
+	[ ! "$interactive" = no ] && echo -e '\nImposta un adeguato numero di giorni di work buffer' && read -p 'Procedo? [Si]' startno
 	[ "$startno" ] && exit 1 || echo "In esecuzione"
 	cc_apply
 
@@ -369,8 +369,8 @@ bunker () {
 			elif	[[ "$line" =~ 'This computer has finished a daily quota of'.*'tasks' ]] || \
 				[[ "$line" =~ '(reached daily quota of'.*'results)' ]]; then
 				echo 'Raggiunto limite giornaliero di tasks'
-				################stampare tempo di attesa
 				break 2
+
 			#No tasks sent
 			elif	[[ "$line" =~ 'This computer has reached a limit on tasks in progress' ]]; then
 				echo "Raggiunto limite di tasks da eseguire"
@@ -379,6 +379,7 @@ bunker () {
 				# Si ottengono migliori risultati con 6-8 giorni
 				echo 'Diminuire i giorni di work buffer impostati'
 				progncpus
+			#elif	[[ "$line" =~ "No tasks are available for" ]]; then
 
 				# Imposta tempo di attesa solo se non è stato forzato con --delay
 			elif	[[ "$line" =~ 'Deferring communication' ]] && [ -z "$upforcedelay" ]; then
@@ -581,6 +582,10 @@ if [ ! -f "$STDOUT_FILE" ]; then
 	echo "File di log $STDOUT_FILE non trovato" >&2
 	exit 1
 fi
+
+# Variabili per modalità suspend
+# Ritardo di sospensione dopo la lettura del checkpoint
+suspdelay=1
 
 # Variabili per modalità bunker
 # Il massimo ncpus attualmente è 64 (boinc 7.3.15, version.h)
