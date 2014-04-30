@@ -272,6 +272,8 @@ bunker () {
 			sleep $upforcedelay && kill -s SIGPIPE $tailpid 2> /dev/null &
 		# Timeout generico. Viene interrotto se il progetto notifica il tempo di attesa
 		else
+			# Se è già impostato un timeout (richiesta spontanea del progetto?) lo termina
+			kill -0 $timeoutpid 2> /dev/null && kill $timeoutpid
 			(
 			trap 'exit 0' SIGTERM
 			sleep $timeoutdelay
@@ -377,10 +379,13 @@ bunker () {
 				echo "Raggiunto limite di tasks da eseguire"
 				progncpus
 			elif	[[ "$line" =~ "Tasks won't finish in time" ]]; then
+				echo "Raggiunto limite di tempo per l'esecuzione di tutto il lavoro"
 				# Si ottengono migliori risultati con 6-8 giorni
-				echo 'Diminuire i giorni di work buffer impostati'
+				#echo 'Diminuire i giorni di work buffer impostati'
 				progncpus
 			#elif	[[ "$line" =~ "No tasks are available for" ]]; then
+
+			#elif	[[ "$line" =~ "Project has no tasks available" ]]; then
 
 				# Imposta tempo di attesa solo se non è stato forzato con --delay
 			elif	[[ "$line" =~ 'Deferring communication' ]] && [ -z "$upforcedelay" ]; then
