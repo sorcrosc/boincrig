@@ -23,6 +23,7 @@ ADD
 
 # Se esiste il file di configurazione controlla se gli switch sono attivati, altrimenti crea un file pulito
 if [ -f $WORKING_DIR/cc_config.xml ]; then
+	[ ! -w $WORKING_DIR/cc_config.xml ] && echo "Il file di configurazione cc_config.xml non è scrivibile" >&2 && exit 1
 	# Se lo switch è impostato lo toglie dalla lista
 	for l in $logswitch; do
 		[ "$(grep "<$l>1" $WORKING_DIR/cc_config.xml)" ] && logswitch="${logswitch/$l/}"
@@ -309,12 +310,14 @@ bunker () {
 			#Requesting new tasks
 			if [[ "$line" =~ 'Requesting new tasks' ]]; then
 				echo "Richiesta tasks $(echo "$line" | sed 's/.*tasks for //' | sed 's/and/e/')"
+				# Sospende tasks riprese e ripristina ncpus
 				[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
 				[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
 
 			#Not requesting tasks
 			elif [[ "$line" =~ 'Not requesting tasks' ]]; then
 				echo 'Nessuna richiesta'
+				# Sospende tasks riprese e ripristina ncpus
 				[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
 				[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
 				case "$line" in
@@ -343,6 +346,13 @@ bunker () {
 						progncpus
 						;;
 				esac
+			#Not reporting or requesting tasks (client < 7.0.54 che non supportano fetch_on_update)
+			elif    [[ "$line" =~ 'Not reporting or requesting tasks' ]]; then
+				echo 'Nessuna richiesta'
+				# Sospende tasks riprese e ripristina ncpus
+				[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
+				[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+				progncpus
 			#Scheduler request failed
 			elif	[[ "$line" =~ 'Scheduler request failed' ]]; then
 				echo 'Richiesta fallita'
@@ -380,7 +390,7 @@ bunker () {
 				echo "Raggiunto limite di tasks da eseguire"
 				progncpus
 			elif	[[ "$line" =~ "Tasks won't finish in time" ]]; then
-				echo "Raggiunto limite di tempo per l'esecuzione di tutto il lavoro"
+				#echo "Raggiunto limite di tempo per l'esecuzione di tutto il lavoro"
 				# Si ottengono migliori risultati con 6-8 giorni
 				#echo 'Diminuire i giorni di work buffer impostati'
 				progncpus
@@ -388,14 +398,22 @@ bunker () {
 
 			#elif	[[ "$line" =~ "Project has no tasks available" ]]; then
 
+#			elif	[[ "$line" =~ 'Deferring communication' ]] && [ -z "$upforcedelay" ]; then
+#				kill $timeoutpid
+#				deferringdelay=$(echo "$line" | sed 's/.*for //')
+#				updelay=$((((10#$(date --date=$deferringdelay +%H)*3600))+\
+#						((10#$(date --date=$deferringdelay +%M)*60))+\
+#							10#$(date --date=$deferringdelay +%S)))
+#				echo "Prossimo update tra $updelay secondi ($(date --date=@$(($(date +%s)+updelay)) +%T))"
+#				sleep $updelay
+#				break
 				# Imposta tempo di attesa solo se non è stato forzato con --delay
-			elif	[[ "$line" =~ 'Deferring communication' ]] && [ -z "$upforcedelay" ]; then
+			elif	[[ "$line" =~ 'Project requested delay of' ]] && [ -z "$upforcedelay" ]; then
+				# Ritardo un secondo per assicurare l'impostazione del trap sul processo di timeout
+				sleep 1
 				# Uccide il processo di timeout
-				kill $timeoutpid
-				deferringdelay=$(echo "$line" | sed 's/.*for //')
-				updelay=$((((10#$(date --date=$deferringdelay +%H)*3600))+\
-						((10#$(date --date=$deferringdelay +%M)*60))+\
-							10#$(date --date=$deferringdelay +%S)))
+                                kill $timeoutpid
+				updelay=$(echo "$line" | sed 's/.*delay of \| second.*//g')
 				echo "Prossimo update tra $updelay secondi ($(date --date=@$(($(date +%s)+updelay)) +%T))"
 				sleep $updelay
 				break
@@ -578,7 +596,7 @@ for dir in $DIRS; do
 	[ -d "$dir" ] && WORKING_DIR="$dir" && break
 done
 
-[ -z "$WORKING_DIR" ] && echo Directory di lavoro $BOINCDIR non trovata >&2 && exit 1
+[ -z "$WORKING_DIR" ] && echo "Directory di lavoro $BOINCDIR non trovata" >&2 && exit 1
 
 IFS=' 	
 '
