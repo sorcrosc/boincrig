@@ -121,7 +121,6 @@ project
 if [ "$subproject" ]; then
 	for sp in $subproject; do
 	[ -z "$(echo "$subprojects_list" | grep " $sp$")" ] && echo "Applicazione $sp non valida" >&2 && exit 1
-#	[ -z "$(echo "$subprojects_list" | grep " $subproject$")" ] && echo "Applicazione $subproject non valida" >&2 && exit 1
 	done
 elif [ ! "$interactive" = no ]; then
 	if ! echo "$subprojects_list" | grep ": $project$" > /dev/null; then
@@ -215,9 +214,6 @@ bunker () {
 	optswitch='fetch_on_update'
 	cc
 	project
-	# Attiva il progetto ed abilita la richiesta di nuove tasks
-	boinccmd --passwd "$RPC_PASSWD" --project $url resume
-	boinccmd --passwd "$RPC_PASSWD" --project $url allowmorework
 	ncpus_orig=$(boinccmd --get_host_info | grep CPUS | sed 's/.*: //')
 	# Chiede ncpus solo se non è stato passato come opzione o si è in modalità interattiva
 	[ -z "$ncpus" ] && [ ! "$interactive" = no ] && echo '' && read -p "Quante cpu devo simulare? [$ncpus_orig (inalterato)] " ncpus
@@ -227,6 +223,9 @@ bunker () {
 	((ncpus>ncpus_MAX)) && echo "Il valore massimo per ncpus è $ncpus_MAX" && ((ncpus=ncpus_MAX))
 	[ ! "$interactive" = no ] && echo -e '\nImposta un adeguato numero di giorni di work buffer' && read -p 'Procedo? [Si]' startno
 	[ "$startno" ] && exit 1 || echo "In esecuzione"
+	# Attiva il progetto ed abilita la richiesta di nuove tasks
+	boinccmd --passwd "$RPC_PASSWD" --project $url resume
+	boinccmd --passwd "$RPC_PASSWD" --project $url allowmorework
 	cc_apply
 
 	# Funzione suspend tasks. Argomento _suspend|resume_, eventualmente gli altri di 'boinccmd --task'
@@ -266,15 +265,12 @@ bunker () {
 	tailtimeout () {
 		# Lista tutti i processi tail nipoti del processo principale
 		tailpid="$(pgrep -d ' ' -P $(pgrep -d ',' -P $PID) tailf)"
-		# Se è stato forzato con --delay non è interrompibile
-		if [ "$upforcedelay" ]; then
-			echo "Prossimo update forzato tra $upforcedelay secondi ($(date --date=@$(($(date +%s)+upforcedelay)) +%T))"
-			sleep $upforcedelay && kill -s SIGPIPE $tailpid 2> /dev/null &
-		# Timeout generico. Viene interrotto se il progetto notifica il tempo di attesa
-		else
-			# Se è già impostato un timeout (richiesta spontanea del progetto?) lo termina
-			kill -0 $timeoutpid 2> /dev/null && kill $timeoutpid
+################i processi tailf non vengono terminati subito
+#echo "	tailf in esecuzione: $tailpid"
+		if [ -z "$upforcedelay" ]; then
+			# Timeout generico. Viene interrotto se il progetto notifica il tempo di attesa
 			(
+			# Il trap va impostato il prima possibile perché è ereditato
 			trap 'exit 0' SIGTERM
 			sleep $timeoutdelay
 			if kill -0 $PID 2> /dev/null; then
@@ -282,10 +278,15 @@ bunker () {
 				kill -s SIGPIPE $tailpid
 			fi
 			) &
+			# Se è già impostato un timeout (richiesta spontanea del progetto?) lo termina
+			kill -0 $timeoutpid 2> /dev/null && kill $timeoutpid
 			timeoutpid=$!
+		else
+			# Se è stato forzato con --delay non è interrompibile
+			echo "Prossimo update forzato tra $upforcedelay secondi ($(date --date=@$(($(date +%s)+upforcedelay)) +%T))"
+			sleep $upforcedelay && kill -s SIGPIPE $tailpid 2> /dev/null &
 		fi
 		}
-
 
 	# Inizio ciclo di update del progetto
 	while true; do
@@ -600,7 +601,7 @@ ncpus_MAX=64
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
 timeoutdelay=60
 # Tentativi senza ottenere lavoro prima di aumentare ncpus
-got0=2
+got0=50
 
 if [ -z "$mode" ]; then
 	echo 'Modalità:'
@@ -611,6 +612,3 @@ if [ -z "$mode" ]; then
 fi
 
 $mode
-
-##############eliminare opzione --passwd dai comandi boinccmd che non la richiedono
-
