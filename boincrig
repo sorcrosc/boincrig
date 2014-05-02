@@ -248,6 +248,12 @@ bunker () {
 		[ "$1" -eq "$ncpus_prog" ] && echo "Impostato ncpus a $ncpus_prog" || :
 		}
 
+	# Funzione sospende tasks riprese e ripristina ncpus
+	resetask () {
+		[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
+		[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+		}
+
 	# Funzione programma ncpus per il ciclo successivo
 	progncpus () {
 		if [ -z "$ncpus" ] || ((ncpus_prog==ncpus)); then
@@ -310,16 +316,12 @@ bunker () {
 			#Requesting new tasks
 			if [[ "$line" =~ 'Requesting new tasks' ]]; then
 				echo "Richiesta tasks $(echo "$line" | sed 's/.*tasks for //' | sed 's/and/e/')"
-				# Sospende tasks riprese e ripristina ncpus
-				[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
-				[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+				resetask
 
 			#Not requesting tasks
 			elif [[ "$line" =~ 'Not requesting tasks' ]]; then
 				echo 'Nessuna richiesta'
-				# Sospende tasks riprese e ripristina ncpus
-				[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
-				[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+				resetask
 				case "$line" in
 					*'non CPU intensive')
 						echo 'Progetto "non cpu intensive"'
@@ -346,13 +348,13 @@ bunker () {
 						progncpus
 						;;
 				esac
+
 			#Not reporting or requesting tasks (client < 7.0.54 che non supportano fetch_on_update)
 			elif    [[ "$line" =~ 'Not reporting or requesting tasks' ]]; then
 				echo 'Nessuna richiesta'
-				# Sospende tasks riprese e ripristina ncpus
-				[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
-				[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+				resetask
 				progncpus
+
 			#Scheduler request failed
 			elif	[[ "$line" =~ 'Scheduler request failed' ]]; then
 				echo 'Richiesta fallita'
@@ -390,7 +392,7 @@ bunker () {
 				echo "Raggiunto limite di tasks da eseguire"
 				progncpus
 			elif	[[ "$line" =~ "Tasks won't finish in time" ]]; then
-				#echo "Raggiunto limite di tempo per l'esecuzione di tutto il lavoro"
+				echo "Raggiunto limite di eseguibilità delle tasks ottenute"
 				# Si ottengono migliori risultati con 6-8 giorni
 				#echo 'Diminuire i giorni di work buffer impostati'
 				progncpus
@@ -398,15 +400,6 @@ bunker () {
 
 			#elif	[[ "$line" =~ "Project has no tasks available" ]]; then
 
-#			elif	[[ "$line" =~ 'Deferring communication' ]] && [ -z "$upforcedelay" ]; then
-#				kill $timeoutpid
-#				deferringdelay=$(echo "$line" | sed 's/.*for //')
-#				updelay=$((((10#$(date --date=$deferringdelay +%H)*3600))+\
-#						((10#$(date --date=$deferringdelay +%M)*60))+\
-#							10#$(date --date=$deferringdelay +%S)))
-#				echo "Prossimo update tra $updelay secondi ($(date --date=@$(($(date +%s)+updelay)) +%T))"
-#				sleep $updelay
-#				break
 				# Imposta tempo di attesa solo se non è stato forzato con --delay
 			elif	[[ "$line" =~ 'Project requested delay of' ]] && [ -z "$upforcedelay" ]; then
 				# Ritardo un secondo per assicurare l'impostazione del trap sul processo di timeout
@@ -619,7 +612,7 @@ ncpus_MAX=64
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
 timeoutdelay=60
 # Tentativi senza ottenere lavoro prima di aumentare ncpus
-got0=50
+got0=3
 
 if [ -z "$mode" ]; then
 	echo 'Modalità:'
