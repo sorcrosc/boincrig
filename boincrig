@@ -587,6 +587,7 @@ $BOINCDIR
 /var/lib/boinc
 /var/lib/boinc-client
 ~/BOINC
+/cygdrive/c/ProgramData/BOINC
 "
 
 IFS='	
@@ -595,7 +596,14 @@ for dir in $DIRS; do
 	[ -d "$dir" ] && WORKING_DIR="$dir" && break
 done
 
-[ -z "$WORKING_DIR" ] && echo "Directory di lavoro $BOINCDIR non trovata" >&2 && exit 1
+[ -z "$WORKING_DIR" ] && echo Directory di lavoro $BOINCDIR non trovata >&2 && exit 1
+
+if [[ "$WORKING_DIR" =~ /cygdrive/ ]]; then
+	boinccmd () {
+	/cygdrive/c/Program\ Files/BOINC/boinccmd.exe "$@"
+	export -f boinccmd
+	}
+fi
 
 IFS=' 	
 '
@@ -618,7 +626,7 @@ ncpus_MAX=64
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
 timeoutdelay=60
 # Tentativi senza ottenere lavoro prima di aumentare ncpus
-got0=2
+got0=1
 # Tentativi senza ottenere lavoro una volta raggiunto ncpus massimo impostato (mai minore di got0)
 got0final=5
 
