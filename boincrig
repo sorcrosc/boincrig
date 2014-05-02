@@ -254,11 +254,17 @@ bunker () {
 		[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
 		}
 
-	# Funzione programma ncpus per il ciclo successivo
+	# Funzione programma ncpus e conteggio tentativi finali
 	progncpus () {
+		# Se non è stato impostato ncpus oppure è già stato programmato il massimo fa got0final tentativi senza successo
 		if [ -z "$ncpus" ] || ((ncpus_prog==ncpus)); then
-			((ncpus<ncpus_MAX)) && echo "E' possibile che si ottenga ulteriore lavoro aumentando ncpus"
-			break 2
+			if [ "$got0count" ] && ((got0count<got0final)); then
+				echo "Altri $((got0final-got0count)) tentativi"
+			else
+				((ncpus<ncpus_MAX)) && echo "E' possibile che si ottenga ulteriore lavoro aumentando ncpus"
+				break 2
+			fi
+		# Programma ncpus per il ciclo successivo
 		elif [ -z "$ncpus_prog" ] || ((ncpus_prog<ncpus)); then
 			echo 'Ritento aumentando ncpus'
 			ncpus_prog=$((${ncpus_prog:-$ncpus_orig}+$ncpus_orig))
@@ -372,7 +378,7 @@ bunker () {
 					echo "Ottenuto $gottasks task per un totale di $totaltasks"
 					# Incrementa ncpus al got0 evento consecutivo. Azzera conteggio se ottiene tasks
 					if ((gottasks==0)); then
-						((++got0count==got0)) && progncpus
+						((++got0count>=got0)) && progncpus
 					else
 						unset got0count
 					fi
@@ -389,12 +395,12 @@ bunker () {
 
 			#No tasks sent
 			elif	[[ "$line" =~ 'This computer has reached a limit on tasks in progress' ]]; then
+				#Aumentare i giorni di work buffer
 				echo "Raggiunto limite di tasks da eseguire"
 				progncpus
 			elif	[[ "$line" =~ "Tasks won't finish in time" ]]; then
-				echo "Raggiunto limite di eseguibilità delle tasks ottenute"
-				# Si ottengono migliori risultati con 6-8 giorni
-				#echo 'Diminuire i giorni di work buffer impostati'
+				#Diminuire i giorni di work buffer
+				echo "Raggiunto limite di eseguibilità in tempo utile"
 				progncpus
 			#elif	[[ "$line" =~ "No tasks are available for" ]]; then
 
@@ -612,7 +618,9 @@ ncpus_MAX=64
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
 timeoutdelay=60
 # Tentativi senza ottenere lavoro prima di aumentare ncpus
-got0=3
+got0=2
+# Tentativi senza ottenere lavoro una volta raggiunto ncpus massimo impostato (mai minore di got0)
+got0final=5
 
 if [ -z "$mode" ]; then
 	echo 'Modalità:'
