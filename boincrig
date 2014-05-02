@@ -433,6 +433,7 @@ while [ "$1" ]; do
 	case "$1" in
 	--help)
 		cat << HELP
+
 NOME
         ${0##*/} - Script multifunzione per compiere operazioni su BOINC
 
@@ -458,13 +459,13 @@ DESCRIZIONE
                         - Riattiva le unità di lavoro sospese per renderne possibile la richiesta di nuovo
                         - Attende il tempo notificato dal progetto tra un richiesta e l'altra
                         - Simula una quantità di core progressivamente maggiore ad ogni richiesta per ottenere più lavoro
+	        L'esecuzione termina quando il progetto restituisce un messaggio di negazione di ulteriore lavoro o dopo un certo numero di richieste con esito negativo.
 
 
         Lo script funziona in modalità interattiva, chiedendo al utente i parametri necessari.
-        Se viene specificata da linea di comando la modalità di funzionamento di base non vengono fatte altre richieste all'utente
-        e l'esecuzione procede con i parametri di default, a meno che non siano stati specificati sempre da linea di comando.
+        Se viene specificata da linea di comando la modalità di funzionamento non vengono fatte altre richieste all'utente e l'esecuzione procede con i parametri di default,
+	a meno che non siano stati specificati sempre da linea di comando.
         Alcuni parametri particolari sono accessibili solo da linea di comando.
-        L'esecuzione termina quando il progetto restituisce un messaggio di negazione di ulteriore lavoro o dopo un certo numero di richieste con esito negativo.
 
 OPZIONI
         --help
@@ -496,6 +497,24 @@ OPZIONI
         --delay   n
                 Forza un determinato intervallo di secondi di attesa tra una richiesta e l'altra in modalità bunker.
 		E'possibile usare i moltiplicatori m ed h per minuti ed ore (esempio: 2m = 2 minuti).
+
+ESEMPI
+	Utilizzo interattivo:
+
+	boincrig
+		Lo script chiede all'utente le impostazioni fondamentali per l'esecuzione
+
+	Utilizzo non interattivo:
+
+	boincrig --suspend rosetta@home --percmin 90
+		Sospende le unità di lavoro del progetto Rosetta che hanno raggiunto il 90% di esecuzione
+
+	boincrig --suspend 'World Community Grid' cep2 --percmax 90
+		Sospende le unità di lavoro dell'applicazione Clean Energy Project (phase 2) del progetto World Community Grid che non hanno superato il 90% di esecuzione
+
+	boincrig --bunker SETI@home --ncpus 64
+		Accumula il maggior numero di unità di lavoro possibili di SETI@home simulando fino a 64 core
+
 HELP
 		exit 0
 		;;
