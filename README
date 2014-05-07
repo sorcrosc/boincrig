@@ -1,0 +1,25 @@
+REQUIREMENTS
+
+The script uses the text editor ed to edit configuration files, so you may need to install it (some distros don't have it preinstalled). 
+
+
+BOINC VERSIONS
+
+Users of version less than 7.0.54 sould consider un upgrade to allow the use of --fetch_on_update option
+
+At the time of writing (version 7.3.15) the maximum ncpus allowed is 64. See MAX_NCPUS variable in sched_config.cpp of the BOINC source code
+
+
+WINDOWS USERS
+
+Some adaptations has been made for execution under Cygwin on Windows. Briefly tested but seems work well.
+The packages util-linux, procps, and ed are needed in addition to the base installation of Cygwin.
+
+Due to the difference in the way Windows and Linux handle newline in text files is racommended to download the file directly from Cygwin.
+You may want the package wget to download the file and the package dos4unix in case you have to deal with this problem.
+
+
+DOWNLOAD
+
+wget https://www.github.com/sorcrosc/boincrig/raw/master/boincrig
+
