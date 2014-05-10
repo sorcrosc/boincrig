@@ -256,6 +256,7 @@ bunker () {
 
 	# Funzione programma ncpus e conteggio tentativi finali
 	progncpus () {
+		[ "$progncpusdone" ] && return || progncpusdone=yes
 		# Se non è stato impostato ncpus oppure è già stato programmato il massimo fa got0final tentativi totali senza successo
 		if [ -z "$ncpus" ] || ((ncpus_prog==ncpus)); then
 			if [ "$got0count" ] && ((got0count<got0final)); then
@@ -313,6 +314,7 @@ bunker () {
 		[ "$ncpus_prog" ] && setncpus $ncpus_prog && trap "setncpus $ncpus_orig;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
 
 		boinccmd --passwd "$RPC_PASSWD" --project $url update && echo -e "Update del progetto"
+		unset progncpusdone
 
 		# Legge log per risultato richiesta
 		while read line; do
@@ -394,7 +396,6 @@ bunker () {
 				break 2
 
 			#No tasks sent
-			#################### I progncpus qui si sommano a quelli chiamati al raggiungimento di got0. Per ora metto got0=2 per mascherare il problema
 			elif	[[ "$line" =~ 'This computer has reached a limit on tasks in progress' ]]; then
 				#Aumentare i giorni di work buffer
 				echo "Raggiunto limite di tasks da eseguire"
@@ -646,7 +647,7 @@ ncpus_MAX=64
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
 timeoutdelay=60
 # Tentativi senza ottenere lavoro prima di aumentare ncpus
-got0=2
+got0=1
 # Tentativi senza ottenere lavoro una volta raggiunto ncpus massimo impostato (mai minore di got0)
 got0final=5
 
