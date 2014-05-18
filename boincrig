@@ -95,7 +95,7 @@ project_lists
 if [ "$project" ]; then
 	[ -z "$(echo "$project_names" | grep "^$project$")" ] && echo "Progetto "$project" non valido" >&2 && exit 1
 else
-	echo ''
+	echo
 	echo 'Progetto:'
 	IFS='
 '
@@ -126,7 +126,7 @@ if [ "$subproject" ]; then
 elif [ ! "$interactive" = no ]; then
 	if ! echo "$subprojects_list" | grep ": $project$" > /dev/null; then
 		echo "Non ci sono applicazioni per $project"
-		echo ''
+		echo
 		exit 0
 	fi
 
@@ -136,7 +136,7 @@ elif [ ! "$interactive" = no ]; then
 	for k in "$@"; do
 		echo $((++kn))\) $k
 	done
-	chmsg='[Tutti]'
+	chmsg='[Tutte]'
 	while true; do
 		unset ch
 		read -p "$chmsg$PS3" chn
@@ -155,7 +155,7 @@ elif [ ! "$interactive" = no ]; then
 	done
 	}
 
-	echo ''
+	echo
 	echo 'Applicazioni:'
 	IFS='
 '
@@ -174,15 +174,15 @@ suspend () {
         cc
        	subproject
 	# Chiede percmin e percmax solo se non sono stati passati come opzioni o si è in modalità interattiva, poi ne controlla la validità
-	[ -z "$percmin$percmax" ] && [ ! "$interactive" = no ] && echo ''
+	[ -z "$percmin$percmax" ] && [ ! "$interactive" = no ] && echo
 	[ -z "$percmin" ] && [ ! "$interactive" = no ] && read -p "Percentuale minima per sospensione? [0] " percmin
 	[ "$percmin" ] && [[ ! "$percmin" =~ ^0*(([0-9]?[0-9])|(100))$ ]] && echo 'Valore percentuale minima non valido' >&2 && exit 1
 	[ -z "$percmax" ] && [ ! "$interactive" = no ] && read -p "Percentuale massima per sospensione? [100] " percmax
 	[ "$percmax" ] && [[ ! "$percmax" =~ ^0*(([0-9]?[0-9])|(100))$ ]] && echo 'Valore percentuale massima non valido' >&2 && exit 1
-	[ ! "$interactive" = no ] && echo '' && read -p 'Procedo? [Si]' startno
+	[ ! "$interactive" = no ] && echo && read -p 'Procedo? [Si]' startno
 	[ "$startno" ] && exit 1 || echo "In esecuzione"
 	cc_apply
-	echo ''
+	echo
 	while read line; do
 		if	[[ "$line" =~ \["$project"\].*\[checkpoint\] ]]; then
 			task_name=$(echo "$line" | sed 's/.*result \| checkpointed$//g')
@@ -217,7 +217,7 @@ bunker () {
 	project
 	ncpus_orig=$(boinccmd --get_host_info | grep CPUS | sed 's/.*: //')
 	# Chiede ncpus solo se non è stato passato come opzione o si è in modalità interattiva
-	[ -z "$ncpus" ] && [ ! "$interactive" = no ] && echo '' && read -p "Quante cpu devo simulare? [$ncpus_orig (inalterato)] " ncpus
+	[ -z "$ncpus" ] && [ ! "$interactive" = no ] && echo && read -p "Quante cpu devo simulare? [$ncpus_orig (inalterato)] " ncpus
 	# Se è stato impostato ncpus ne controlla la validità
 	[ "$ncpus" ] && [[ ! "$ncpus" =~ ^[0-9]+$ ]] && echo 'ncpus non valido' >&2 && exit 1
 	[ "$ncpus" ] &&	((ncpus<=ncpus_orig)) && echo "Ignoro ncpus $ncpus perché inferiore o uguale ai cores reali" && unset ncpus
@@ -304,7 +304,7 @@ bunker () {
 
 	# Inizio ciclo di update del progetto
 	while true; do
-		echo ''
+		echo
 
 		# Riprende le task in sospensione
 		susptasks=$(boinccmd --passwd "$RPC_PASSWD" --get_tasks | grep -B 11 'suspended.*yes' | grep -B 2 "$url" | grep '^ *name:' | sed 's/.*: //')
@@ -364,8 +364,8 @@ bunker () {
 				progncpus
 
 			#Scheduler request failed
-			elif	[[ "$line" =~ 'Scheduler request failed' ]]; then
-				echo 'Richiesta fallita'
+			elif	[[ "$line" =~ '] Scheduler request failed' ]]; then
+				echo 'Comunicazione fallita'
 				# Commenti aggiuntivi sono tutti errori http
 				[[ "$line" =~ failed: ]] && echo 'Problema di rete'
 				#if	[[ "$line" =~ 'Timeout was reached' ]]; then
@@ -429,7 +429,7 @@ bunker () {
 
 
 # Inizio
-echo ''
+echo
 mode=
 while [ "$1" ]; do
 	case "$1" in
@@ -558,7 +558,7 @@ HELP
 		for project in $project_names; do
 			echo "$project"
 			echo "$subprojects_list" | grep -B 1 ": $project$" | grep name: | sed 's/[^ ]*://'
-			echo ''
+			echo
 		done
 		exit 0
 		;;
@@ -649,7 +649,7 @@ timeoutdelay=60
 # Tentativi senza ottenere lavoro prima di aumentare ncpus
 got0=1
 # Tentativi senza ottenere lavoro una volta raggiunto ncpus massimo impostato (mai minore di got0)
-got0final=5
+got0final=3
 
 if [ -z "$mode" ]; then
 	echo 'Modalità:'
