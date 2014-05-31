@@ -313,7 +313,8 @@ bunker () {
 		# Manipola ncpus
 		[ "$ncpus_prog" ] && setncpus $ncpus_prog && trap "setncpus $ncpus_orig;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
 
-		boinccmd --passwd "$RPC_PASSWD" --project $url update && echo -e "Update del progetto"
+		(sleep 1; boinccmd --passwd "$RPC_PASSWD" --project $url update && echo -e "Update del progetto") &
+
 		unset progncpusdone
 
 		# Legge log per risultato richiesta
