@@ -70,11 +70,11 @@ if [ "${logswitch/ /}${optswitch/ /}" ]; then
 	for lo in $logswitch $optswitch; do
 		del-cc $lo
 	done && echo -e '\nDisattivato switch di log/opzioni attivati precedentemente'
-	boinccmd --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
+	boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
 	}
 
 	trap 'resetswitch;exit 0' SIGINT SIGTERM
-	boinccmd --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
+	boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
 else
 	trap ':;exit 0' SIGINT SIGTERM
 fi
@@ -82,11 +82,11 @@ fi
 
 project_lists () {
 # Lista progetti con indirizzi URL
-projects_list="$(boinccmd --passwd "$RPC_PASSWD" --get_simple_gui_info | grep -B 1000 -m 1 '= Tasks =' | grep --no-group-separator -A 2 '^[1-9][0-9]*)')"
+projects_list="$(boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --get_simple_gui_info | grep -B 1000 -m 1 '= Tasks =' | grep --no-group-separator -A 2 '^[1-9][0-9]*)')"
 # Lista dei nomi dei progetti
 project_names="$(echo "$projects_list" | grep 'name' | sed 's/.*: //')"
 # Lista dei sottoprogetti con il progetto a cui appartengono
-subprojects_list="$(boinccmd --passwd "$RPC_PASSWD" --get_state | grep -A 1000 -m 1 '= Applications =' | grep -B 1000 -m 1 '= Application versions =')"
+subprojects_list="$(boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --get_state | grep -A 1000 -m 1 '= Applications =' | grep -B 1000 -m 1 '= Application versions =')"
 }
 
 # Scelta progetto
@@ -196,7 +196,7 @@ suspend () {
 						if [ $taskperc -ge ${percmin:-0} -a $taskperc -le ${percmax:-100} ]; then
 							sleep $suspdelay
 							# Manca verifica: il comando di sospensione potrebbe essere lanciato dopo il termine della wu
-							boinccmd --passwd "$RPC_PASSWD" --task $url $task_name suspend
+							boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --task $url $task_name suspend
 							echo "sospesa    al $((10#$taskperc))%	task $task_name"
 						else
 							echo "checkpoint al $((10#$taskperc))%	task $task_name"
@@ -215,7 +215,7 @@ bunker () {
 	optswitch='fetch_on_update'
 	cc
 	project
-	ncpus_orig=$(boinccmd --get_host_info | grep CPUS | sed 's/.*: //')
+	ncpus_orig=$(boinccmd $boinccmd_host --get_host_info | grep CPUS | sed 's/.*: //')
 	# Chiede ncpus solo se non è stato passato come opzione o si è in modalità interattiva
 	[ -z "$ncpus" ] && [ ! "$interactive" = no ] && echo && read -p "Quante cpu devo simulare? [$ncpus_orig (inalterato)] " ncpus
 	# Se è stato impostato ncpus ne controlla la validità
@@ -225,14 +225,14 @@ bunker () {
 	[ ! "$interactive" = no ] && echo -e '\nImposta un adeguato numero di giorni di work buffer' && read -p 'Procedo? [Si]' startno
 	[ "$startno" ] && exit 1 || echo "In esecuzione"
 	# Attiva il progetto ed abilita la richiesta di nuove tasks
-	boinccmd --passwd "$RPC_PASSWD" --project $url resume
-	boinccmd --passwd "$RPC_PASSWD" --project $url allowmorework
+	boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --project $url resume
+	boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --project $url allowmorework
 	cc_apply
 
 	# Funzione suspend tasks. Argomento _suspend|resume_, eventualmente gli altri di 'boinccmd --task'
 	susptasks () {
 		for task_name in $susptasks; do
-			boinccmd --passwd "$RPC_PASSWD" --task $url $task_name $1
+			boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --task $url $task_name $1
 		done
 		[ "$1" = suspend ] && echo 'Sospese tasks che lo erano in precedenza' || :
 		[ "$1" = resume ] && echo 'Riprese tasks in sospensione' || :
@@ -243,7 +243,7 @@ bunker () {
 	setncpus () {
 		del-cc ncpus
 		add-cc options ncpus $1
-		boinccmd --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
+		boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --read_cc_config &> /dev/null
 		[ "$1" -eq "$ncpus_orig" ] && echo "Ripristinato ncpus a $ncpus_orig" && del-cc ncpus || :
 		[ "$1" -eq "$ncpus_prog" ] && echo "Impostato ncpus a $ncpus_prog" || :
 		}
@@ -257,10 +257,10 @@ bunker () {
 	# Funzione programma ncpus e conteggio tentativi finali
 	progncpus () {
 		[ "$progncpusdone" ] && return || progncpusdone=yes
-		# Se non è stato impostato ncpus oppure è già stato programmato il massimo fa got0final tentativi totali senza successo
+		# Se non è stato impostato ncpus oppure è già stato programmato il massimo fa GOT0FINAL tentativi totali senza successo
 		if [ -z "$ncpus" ] || ((ncpus_prog==ncpus)); then
-			if [ "$got0count" ] && ((got0count<got0final)); then
-				echo "Altri $((got0final-got0count)) tentativi"
+			if [ "$got0count" ] && ((got0count<GOT0FINAL)); then
+				echo "Altri $((GOT0FINAL-got0count)) tentativi"
 			else
 				((ncpus<ncpus_MAX)) && echo "E' possibile che si ottenga ulteriore lavoro aumentando ncpus"
 				break 2
@@ -270,7 +270,7 @@ bunker () {
 			echo 'Ritento aumentando ncpus'
 			ncpus_prog=$((${ncpus_prog:-$ncpus_orig}+$ncpus_orig))
 			((ncpus_prog>ncpus)) && ((ncpus_prog=ncpus))
-			# Azzera il conteggio dei got0
+			# Azzera il conteggio dei GOT0
 			unset got0count
 		fi
 		}
@@ -307,13 +307,13 @@ bunker () {
 		echo
 
 		# Riprende le task in sospensione
-		susptasks=$(boinccmd --passwd "$RPC_PASSWD" --get_tasks | grep -B 11 'suspended.*yes' | grep -B 2 "$url" | grep '^ *name:' | sed 's/.*: //')
+		susptasks=$(boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --get_tasks | grep -B 11 'suspended.*yes' | grep -B 2 "$url" | grep '^ *name:' | sed 's/.*: //')
 		[ "$susptasks" ] && susptasks resume && trap "susptasks suspend;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
 
 		# Manipola ncpus
 		[ "$ncpus_prog" ] && setncpus $ncpus_prog && trap "setncpus $ncpus_orig;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
 
-		(sleep 1; boinccmd --passwd "$RPC_PASSWD" --project $url update && echo -e "Update del progetto") &
+		(sleep 1; boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --project $url update && echo -e "Update del progetto") &
 
 		unset progncpusdone
 
@@ -377,11 +377,11 @@ bunker () {
 			elif	[[ "$line" =~ 'Scheduler request completed' ]]; then
 				if	[[ "$line" =~ 'got '.*' new task' ]]; then
 					gottasks=$(echo "$line" | sed 's/.*got \| new task.*//g')
-					totaltasks=$(boinccmd --passwd "$RPC_PASSWD" --get_tasks | grep -c "$url")
+					totaltasks=$(boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --get_tasks | grep -c "$url")
 					echo "Ottenuto $gottasks task per un totale di $totaltasks"
-					# Incrementa ncpus al got0 evento consecutivo. Azzera conteggio se ottiene tasks
+					# Incrementa ncpus al GOT0 evento consecutivo. Azzera conteggio se ottiene tasks
 					if ((gottasks==0)); then
-						((++got0count>=got0)) && progncpus
+						((++got0count>=GOT0)) && progncpus
 					else
 						unset got0count
 					fi
@@ -441,9 +441,9 @@ NOME
         ${0##*/} - Script multifunzione per compiere operazioni su BOINC
 
 SINTASSI
-        ${0##*/} [--dir DIRECTORY] [--percmin N] [--percmax N] [--ncpus N] [--delay N]
-        ${0##*/} --suspend PROJECT [APPLICATION ...] [--dir DIRECTORY] [--percmin N] [--percmax N]
-        ${0##*/} --bunker PROJECT [--dir DIRECTORY] [--ncpus N] [--delay N]
+        ${0##*/} [--dir DIRECTORY] [--port PORT] [--percmin N] [--percmax N] [--ncpus N] [--delay N]
+        ${0##*/} --suspend PROJECT [APPLICATION ...] [--dir DIRECTORY] [--port PORT] [--percmin N] [--percmax N]
+        ${0##*/} --bunker PROJECT [--dir DIRECTORY] [--port PORT] [--ncpus N] [--delay N]
         ${0##*/} --list|--help
 
 DESCRIZIONE
@@ -486,7 +486,10 @@ OPZIONI
                 E' utile per ottenere i nomi da inserire come parametri per suspend e bunker.
 
         --dir     DIRECTORY
-                Specifica la directory di lavoro di BOINC.
+                Specifica la directory di lavoro del client BOINC.
+
+	--port    PORT
+		Specifica la porta di comunicazione con il client BOINC.
 
         --percmin N
                 Imposta la percentuale oltre la quale le unità di lavoro saranno selezionate per essere sospese in modalità suspend.
@@ -528,6 +531,16 @@ HELP
 			shift
 		else
 			echo 'La directory specificata non esiste' >&2
+			exit 1
+		fi
+		;;
+	--port)
+		shift
+		if [[ "$1" =~ [1-9][0-9][0-9][0-9][0-9]? ]]; then
+			boinccmd_host="--host localhost:$1"
+			shift
+		else
+			echo "Non è stata specificata una porta valida"
 			exit 1
 		fi
 		;;
@@ -648,9 +661,9 @@ ncpus_MAX=64
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
 timeoutdelay=60
 # Tentativi senza ottenere lavoro prima di aumentare ncpus
-got0=1
-# Tentativi senza ottenere lavoro una volta raggiunto ncpus massimo impostato (mai minore di got0)
-got0final=3
+: ${GOT0:=1}
+# Tentativi senza ottenere lavoro una volta raggiunto ncpus massimo impostato (mai minore di GOT0)
+: ${GOT0FINAL:=3}
 
 if [ -z "$mode" ]; then
 	echo 'Modalità:'
