@@ -257,10 +257,12 @@ bunker () {
 	# Funzione programma ncpus e conteggio tentativi finali
 	progncpus () {
 		[ "$progncpusdone" ] && return || progncpusdone=yes
+		# Salva ncpus attuale nel caso occorra annullare l'impostazione
+		ncpus_prev=$ncpus_prog
 		# Se non è stato impostato ncpus oppure è già stato programmato il massimo fa GOT0FINAL tentativi totali senza successo
 		if [ -z "$ncpus" ] || ((ncpus_prog==ncpus)); then
 			if [ "$got0count" ] && ((got0count<GOT0FINAL)); then
-				echo "Altri $((GOT0FINAL-got0count)) tentativi"
+				echo "Ulteriori $((GOT0FINAL-got0count)) tentativi senza ottenere tasks"
 			else
 				((ncpus<ncpus_MAX)) && echo "E' possibile che si ottenga ulteriore lavoro aumentando ncpus"
 				break 2
@@ -389,7 +391,16 @@ bunker () {
 				tailtimeout
 
 			elif	[[ "$line" =~ 'last request too recent' ]]; then
-				echo 'Precedente richiesta troppo recente'
+				echo -n 'Precedente richiesta troppo recente'
+				if [ "$progncpusdone" ] && ((ncpus_prog>ncpus_prev)); then
+					ncpus_prog=$ncpus_prev
+					echo ": Annullato impostazione ncpus"
+				elif [ "$got0count" ]; then
+					((--got0count))
+					echo ": Conteggio ripristinato"
+				else
+					echo
+				fi
 
 			elif	[[ "$line" =~ 'This computer has finished a daily quota of'.*'tasks' ]] || \
 				[[ "$line" =~ '(reached daily quota of'.*'results)' ]]; then
