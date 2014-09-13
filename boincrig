@@ -82,11 +82,11 @@ fi
 
 project_lists () {
 # Lista progetti con indirizzi URL
-projects_list="$(boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --get_simple_gui_info | grep -B 1000 -m 1 '= Tasks =' | grep --no-group-separator -A 2 '^[1-9][0-9]*)')"
+projects_list="$(boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --get_simple_gui_info | grep -B 10000 '= Tasks =' | grep --no-group-separator -A 2 '^[1-9][0-9]*)')"
 # Lista dei nomi dei progetti
 project_names="$(echo "$projects_list" | grep 'name' | sed 's/.*: //')"
 # Lista dei sottoprogetti con il progetto a cui appartengono
-subprojects_list="$(boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --get_state | grep -A 1000 -m 1 '= Applications =' | grep -B 1000 -m 1 '= Application versions =')"
+subprojects_list="$(boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --get_state | grep -A 10000 '= Applications =' | grep -B 10000 '= Application versions =')"
 }
 
 # Scelta progetto
