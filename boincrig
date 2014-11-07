@@ -37,6 +37,10 @@ if [ -f $WORKING_DIR/cc_config.xml ]; then
 	'
 	done
 else
+	if [ ! -w $WORKING_DIR ]; then
+		echo "Non è possibile creare il file di configurazione in quanto la directory di lavoro $WORKING_DIR non è scrivibile"
+		exit 1
+	fi
 	cat > $WORKING_DIR/cc_config.xml << CC_CONFIG
 <cc_config>
 	<log_flags>
