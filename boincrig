@@ -304,7 +304,8 @@ bunker () {
 		else
 			# Se è stato forzato con --delay non è interrompibile
 			echo "Prossimo update forzato tra $upforcedelay secondi ($(date --date=@$(($(date +%s)+upforcedelay)) +%T))"
-			sleep $upforcedelay && kill -s SIGPIPE $tailpid 2> /dev/null &
+			kill -s SIGPIPE $tailpid 2> /dev/null
+			sleep $upforcedelay
 		fi
 		}
 
