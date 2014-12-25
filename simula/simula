@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# boinccmd_fake simula i progetti rosetta e wuprop
+
+gnome-terminal -e "watch -n 1 pstree -p $$"
+gnome-terminal -e "./message_sender [rosetta@home] [WUProp@Home]"
+
+BOINCDIR=.
+
+
+# sostituisce boinccmd con un fake
+boinccmd () {
+	./boinccmd_fake "$@"
+}
+export -f boinccmd
+
+
+
+
+../boincrig

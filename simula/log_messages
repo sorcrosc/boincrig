@@ -1,0 +1,32 @@
+# update requested by user
+
+Requesting new tasks for CPU and ATI
+
+Not requesting tasks
+#	non CPU intensive
+#	suspended via Manager
+#	"no new tasks" requested via Manager
+#	too many runnable tasks
+#	don't need
+
+# (client < 7.0.54 che non supportano fetch_on_update)
+Not reporting or requesting tasks
+
+Scheduler request failed
+
+Scheduler request completed
+Scheduler request completed: got 0 new tasks
+Scheduler request completed: got 1 new tasks
+
+last request too recent
+
+This computer has finished a daily quota of 1 tasks
+(reached daily quota of 1 results)
+
+This computer has reached a limit on tasks in progress
+
+Tasks won't finish in time
+
+Project requested delay of 3 seconds
+
+

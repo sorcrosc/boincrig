@@ -1,0 +1,8 @@
+#!/bin/bash
+
+> stdoutdae.txt
+IFS='
+'
+select s in $(cat log_messages | grep ^[^#]); do
+	echo "$@ $s" >> stdoutdae.txt
+done

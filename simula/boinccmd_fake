@@ -1,0 +1,264 @@
+#!/bin/bash
+
+for i in "$@"; do
+	case "$i" in
+		--get_host_info)
+			cat << EOF
+  timezone: 3600
+  domain name: pippo.domina
+  IP addr: 192.168.1.255
+  #CPUS: 8
+  CPU vendor: AuthenticAMD
+  CPU model: AMD FX(tm)-8320 Eight-Core Processor [Family 21 Model 2 Stepping 0]
+  CPU FP OPS: 1318125575.595814
+  CPU int OPS: 3532287250.464379
+  CPU mem BW: 1000000000.000000
+  OS name: Linux
+  OS version: 3.17.6-900.fc00.x86_64
+  mem size: 16725700608.000000
+  cache size: 2097152.000000
+  swap size: 2097147904.000000
+  disk size: 899737661440.000000
+  disk free: 28857982976.000000"
+EOF
+			break
+		;;
+		--get_simple_gui_info)
+			cat << EOF
+======== Projects ========
+1) -----------
+   name: WUProp@Home
+   master URL: http://wuprop.boinc-af.org/
+   user_name: pippo
+   team_name: BOINC.Italy
+   resource share: 100.000000
+   user_total_credit: 972361.388889
+   user_expavg_credit: 83.957514
+   host_total_credit: 920295.294444
+   host_expavg_credit: 45.630252
+   nrpc_failures: 0
+   master_fetch_failures: 0
+   master fetch pending: no
+   scheduler RPC pending: no
+   trickle upload pending: no
+   attached via Account Manager: no
+   ended: no
+   suspended via GUI: no
+   don't request more work: no
+   disk usage: 0.000000
+   last RPC: 1419171814.311984
+   project files downloaded: 0.000000
+GUI URL:
+   name: Your account
+   description: View your account information and credit totals
+   URL: http://wuprop.boinc-af.org/home.php
+GUI URL:
+   name: Team
+   description: Info about BOINC.Italy
+   URL: http://wuprop.boinc-af.org/team_display.php?teamid=628
+GUI URL:
+   name: Forum
+   description: Get help about WUProp@home
+   URL: http://wuprop.boinc-af.org/forum_index.php
+GUI URL:
+   name: Results
+   description: View data collected by the project
+   URL: http://wuprop.boinc-af.org/results.html
+2) -----------
+   name: rosetta@home
+   master URL: http://boinc.bakerlab.org/rosetta/
+   user_name: pippo
+   team_name: BOINC.Italy
+   resource share: 200.000000
+   user_total_credit: 9232217.542851
+   user_expavg_credit: 22.258296
+   host_total_credit: 9158628.671685
+   host_expavg_credit: 21.079042
+   nrpc_failures: 6
+   master_fetch_failures: 0
+   master fetch pending: no
+   scheduler RPC pending: no
+   trickle upload pending: no
+   attached via Account Manager: no
+   ended: no
+   suspended via GUI: no
+   don't request more work: no
+   disk usage: 0.000000
+   last RPC: 0.000000
+   project files downloaded: 0.000000
+GUI URL:
+   name: FoldIt!
+   description: Want to play a game?
+   URL: http://fold.it
+GUI URL:
+   name: Science of Rosetta
+   description: An overview of the basic science behind Rosetta@home
+   URL: http://boinc.bakerlab.org/rosetta/rah_education/
+GUI URL:
+   name: Message boards
+   description: Correspond with other users on the Rosetta@home message boards
+   URL: http://boinc.bakerlab.org/rosetta/forum_index.php
+GUI URL:
+   name: Help
+   description: Ask questions and report problems
+   URL: http://boinc.bakerlab.org/rosetta/forum_help_desk.php
+GUI URL:
+   name: Your account
+   description: View your account information and credit totals
+   URL: http://boinc.bakerlab.org/rosetta/show_user.php?userid=999999
+GUI URL:
+   name: Your preferences
+   description: View and modify your Rosetta@home account profile and preferences
+   URL: http://boinc.bakerlab.org/rosetta/home.php
+GUI URL:
+   name: Your results
+   description: View your last week (or more) of computational results and work
+   URL: http://boinc.bakerlab.org/rosetta/results.php?userid=999999
+GUI URL:
+   name: Your computers
+   description: View a listing of all the computers on which you are running Rosetta@home
+   URL: http://boinc.bakerlab.org/rosetta/hosts_user.php?userid=999999
+GUI URL:
+   name: Team
+   description: Info about BOINC.Italy
+   URL: http://boinc.bakerlab.org/rosetta/team_display.php?teamid=276
+
+======== Tasks ========
+1) -----------
+   name: wu_v4_1419053287_21920_0
+   WU name: wu_v4_1419053287_21920
+   project URL: http://wuprop.boinc-af.org/
+   report deadline: Wed Dec 31 10:22:37 2014
+   ready to report: no
+   got server ack: no
+   final CPU time: 0.000000
+   state: downloaded
+   scheduler state: scheduled
+   exit_status: 0
+   signal: 0
+   suspended via GUI: no
+   active_task_state: EXECUTING
+   app version num: 413
+   checkpoint CPU time: 135.952100
+   current CPU time: 136.016700
+   fraction done: 0.952909
+   swap size: 0.000000
+   working set size: 0.000000
+   estimated CPU time remaining: 1012.192189
+2) -----------
+   name: rb_12_17_52432_98121_ab_stage0_t000___robetta_IGNORE_THE_REST_06_19_232345_22_0
+   WU name: rb_12_17_52432_98121_ab_stage0_t000___robetta_IGNORE_THE_REST_06_19_232345_22
+   project URL: http://boinc.bakerlab.org/rosetta/
+   report deadline: Wed Dec 31 22:05:53 2014
+   ready to report: no
+   got server ack: no
+   final CPU time: 0.000000
+   state: downloaded
+   scheduler state: scheduled
+   exit_status: 0
+   signal: 0
+   suspended via GUI: no
+   active_task_state: EXECUTING
+   app version num: 352
+   checkpoint CPU time: 19963.490000
+   current CPU time: 19982.920000
+   fraction done: 0.673754
+   swap size: 0.000000
+   working set size: 0.000000
+   estimated CPU time remaining: 9006.378557
+3) -----------
+   name: srb_12_17_52432_98121_ab_stage0_t000___robetta_IGNORE_THE_REST_06_19_232345_22_0
+   WU name: srb_12_17_52432_98121_ab_stage0_t000___robetta_IGNORE_THE_REST_06_19_232345_22
+   project URL: http://boinc.bakerlab.org/rosetta/
+   report deadline: Wed Dec 31 22:05:53 2014
+   ready to report: no
+   got server ack: no
+   final CPU time: 0.000000
+   state: downloaded
+   scheduler state: scheduled
+   exit_status: 0
+   signal: 0
+   suspended via GUI: yes
+   active_task_state: SUSPENDED
+   app version num: 352
+   checkpoint CPU time: 19963.490000
+   current CPU time: 19982.920000
+   fraction done: 0.673754
+   swap size: 0.000000
+   working set size: 0.000000
+   estimated CPU time remaining: 9006.378557
+EOF
+			break
+		;;
+		--get_tasks)
+			cat << EOF
+======== Tasks ========
+1) -----------
+   name: wu_v4_1419053287_21920_0
+   WU name: wu_v4_1419053287_21920
+   project URL: http://wuprop.boinc-af.org/
+   report deadline: Wed Dec 31 10:22:37 2014
+   ready to report: no
+   got server ack: no
+   final CPU time: 0.000000
+   state: downloaded
+   scheduler state: scheduled
+   exit_status: 0
+   signal: 0
+   suspended via GUI: no
+   active_task_state: EXECUTING
+   app version num: 413
+   checkpoint CPU time: 135.952100
+   current CPU time: 136.016700
+   fraction done: 0.952909
+   swap size: 0.000000
+   working set size: 0.000000
+   estimated CPU time remaining: 1012.192189
+2) -----------
+   name: rb_12_17_52432_98121_ab_stage0_t000___robetta_IGNORE_THE_REST_06_19_232345_22_0
+   WU name: rb_12_17_52432_98121_ab_stage0_t000___robetta_IGNORE_THE_REST_06_19_232345_22
+   project URL: http://boinc.bakerlab.org/rosetta/
+   report deadline: Wed Dec 31 22:05:53 2014
+   ready to report: no
+   got server ack: no
+   final CPU time: 0.000000
+   state: downloaded
+   scheduler state: scheduled
+   exit_status: 0
+   signal: 0
+   suspended via GUI: no
+   active_task_state: EXECUTING
+   app version num: 352
+   checkpoint CPU time: 19963.490000
+   current CPU time: 19982.920000
+   fraction done: 0.673754
+   swap size: 0.000000
+   working set size: 0.000000
+   estimated CPU time remaining: 9006.378557
+3) -----------
+   name: srb_12_17_52432_98121_ab_stage0_t000___robetta_IGNORE_THE_REST_06_19_232345_22_0
+   WU name: srb_12_17_52432_98121_ab_stage0_t000___robetta_IGNORE_THE_REST_06_19_232345_22
+   project URL: http://boinc.bakerlab.org/rosetta/
+   report deadline: Wed Dec 31 22:05:53 2014
+   ready to report: no
+   got server ack: no
+   final CPU time: 0.000000
+   state: downloaded
+   scheduler state: scheduled
+   exit_status: 0
+   signal: 0
+   suspended via GUI: yes
+   active_task_state: UNINITIALIZED
+   app version num: 352
+   checkpoint CPU time: 19963.490000
+   current CPU time: 19982.920000
+   fraction done: 0.673754
+   swap size: 0.000000
+   working set size: 0.000000
+   estimated CPU time remaining: 9006.378557
+EOF
+			break
+		;;
+	esac
+	shift
+done
