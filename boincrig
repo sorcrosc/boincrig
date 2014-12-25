@@ -254,8 +254,16 @@ bunker () {
 
 	# Funzione sospende tasks riprese e ripristina ncpus
 	resetask () {
-		[ "$susptasks" ] && susptasks suspend && trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
-		[ "$ncpus_prog" ] && setncpus $ncpus_orig && trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+		if [ "$susptasks" ]; then
+			susptasks suspend
+			trap "$(trap -p SIGINT | sed "s/.* '\|susptasks suspend;\|' .*//g")" SIGINT SIGTERM
+			unset susptasks
+		fi
+		if [ "$ncpus_prog" -a "$setncpusdone" ]; then
+			setncpus $ncpus_orig
+			trap "$(trap -p SIGINT | sed "s/.* '\|setncpus $ncpus_orig;\|' .*//g")" SIGINT SIGTERM
+			unset setncpusdone
+		fi
 		}
 
 	# Funzione programma ncpus e conteggio tentativi finali
@@ -281,20 +289,21 @@ bunker () {
 		fi
 		}
 
-	# Funzione imposta timeout per riavvio del ciclo di update. In background per poter continuare a leggere i log
+	# Funzione imposta timeout per riavvio del ciclo di update.
 	tailtimeout () {
-		# Lista tutti i processi tail nipoti del processo principale
-		tailpid="$(pgrep -d ' ' -P $(pgrep -d ',' -P $PID) tailf)"
-################i processi tailf non vengono terminati subito
-#echo "	tailf in esecuzione: $tailpid"
+		# Termina il timeout generale
+		kill $gentimeoutpid
+
 		if [ -z "$upforcedelay" ]; then
-			# Timeout generico. Viene interrotto se il progetto notifica il tempo di attesa
+			# Timeout che viene interrotto se il progetto notifica il tempo di attesa
 			(
 			# Il trap va impostato il prima possibile perché è ereditato
 			trap 'exit 0' SIGTERM
-			sleep $timeoutdelay
+
+			sleep $TIMEOUTDELAY
 			if kill -0 $PID 2> /dev/null; then
 				echo 'Raggiunto timeout'
+				# Arresto il ciclo uccidendo tailf perché siamo in background
 				kill -s SIGPIPE $tailpid
 			fi
 			) &
@@ -304,7 +313,7 @@ bunker () {
 		else
 			# Se è stato forzato con --delay non è interrompibile
 			echo "Prossimo update forzato tra $upforcedelay secondi ($(date --date=@$(($(date +%s)+upforcedelay)) +%T))"
-			kill -s SIGPIPE $tailpid 2> /dev/null
+			kill -s SIGPIPE $tailpid #2> /dev/null
 			sleep $upforcedelay
 		fi
 		}
@@ -318,14 +327,39 @@ bunker () {
 		[ "$susptasks" ] && susptasks resume && trap "susptasks suspend;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
 
 		# Manipola ncpus
-		[ "$ncpus_prog" ] && setncpus $ncpus_prog && trap "setncpus $ncpus_orig;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
-
-		(sleep 1; boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --project $url update && echo -e "Update del progetto") &
+		if [ "$ncpus_prog" ]; then
+			setncpus $ncpus_prog
+			trap "setncpus $ncpus_orig;$(trap -p SIGINT | sed "s/.* '\|' .*//g")" SIGINT SIGTERM
+			setncpusdone=yes
+		fi
 
 		unset progncpusdone
 
+		# Update del progetto con attesa in backgroud per assicurare la lettura dei log
+		(sleep 1; boinccmd $boinccmd_host --passwd "$RPC_PASSWD" --project $url update && echo -e "Update del progetto") &
+
 		# Legge log per risultato richiesta
 		while read line; do
+
+		if [ -z "$tailsetupdone" ]; then
+			# Prende tutti i processi tailf nipoti del processo principale
+			tailpid="$(pgrep -d ' ' -P $(pgrep -d ',' -P $PID) tailf)"
+
+			# Timeout generale di sicurezza per riavvio del ciclo di update
+			(
+			# Il trap va impostato il prima possibile perché è ereditato
+			trap 'exit 0' SIGTERM
+
+			sleep $GENTIMEOUTDELAY
+			if kill -0 $PID 2> /dev/null; then
+				echo 'Raggiunto timeout generale, forse qualcosa è andato storto'
+				# Arresto il ciclo uccidendo tailf perché siamo in background
+				kill -s SIGPIPE $tailpid
+			fi
+			) &
+			gentimeoutpid=$!
+			tailsetupdone=yes
+		fi
 
 		if [[ "$line" =~ \["$project"\] ]]; then
 
@@ -410,6 +444,8 @@ bunker () {
 			elif	[[ "$line" =~ 'This computer has finished a daily quota of'.*'tasks' ]] || \
 				[[ "$line" =~ '(reached daily quota of'.*'results)' ]]; then
 				echo 'Raggiunto limite giornaliero di tasks'
+				# Nel caso il ripristino non sia già avvenuto regolarmente per altri messaggi
+				resetask
 				break 2
 
 			#No tasks sent
@@ -429,18 +465,30 @@ bunker () {
 			elif	[[ "$line" =~ 'Project requested delay of' ]] && [ -z "$upforcedelay" ]; then
 				# Ritardo un secondo per assicurare l'impostazione del trap sul processo di timeout
 				sleep 1
-				# Uccide il processo di timeout
-                                kill $timeoutpid
+				# Uccide i processi di timeout
+				kill -0 $gentimeoutpid 2> /dev/null && kill $gentimeoutpid
+				kill -0 $timeoutpid 2> /dev/null && kill $timeoutpid
+
 				updelay=$(echo "$line" | sed 's/.*delay of \| second.*//g')
 				echo "Prossimo update tra $updelay secondi ($(date --date=@$(($(date +%s)+updelay)) +%T))"
+				# Un semplice break non sembra uccidere il processo tailf
+				kill -s SIGPIPE $tailpid
 				sleep $updelay
-				break
 			fi
 		fi
 		done < <(tailf -0 $STDOUT_FILE)
+		unset tailsetupdone
+		# Nel caso intervenga un timeout
+		resetask
 	done
+
+	# Nel caso intervenga un break 2
+	kill -s SIGPIPE $tailpid 2> /dev/null
+	resetask
+
 	# Se la funzione esiste significa che ci sono switch impostati, quindi li resetta
 	resetswitch 2> /dev/null
+
 	echo 'Terminato'
 }
 
@@ -672,10 +720,12 @@ fi
 suspdelay=1
 
 # Variabili per modalità bunker
-# Il massimo ncpus attualmente è 64 (boinc 7.3.15)
-ncpus_MAX=64
+# Il massimo ncpus attualmente è 64 (boinc 7.5.0)
+: ${ncpus_MAX:=64}
+# Timeout generale per riavvio ciclo update. Almeno 120 secondi perché è il tempo di risposta per errore di rete dopo richiesta di update
+: ${GENTIMEOUTDELAY:=135}
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
-timeoutdelay=60
+: ${TIMEOUTDELAY:=60}
 # Tentativi senza ottenere lavoro prima di aumentare ncpus
 : ${GOT0:=1}
 # Tentativi senza ottenere lavoro una volta raggiunto ncpus massimo impostato (mai minore di GOT0)
