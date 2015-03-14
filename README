@@ -7,7 +7,12 @@ BOINC VERSIONS
 
 Users of version less than 7.0.54 sould consider un upgrade to allow the use of --fetch_on_update option
 
-At the time of writing (version 7.3.15) the maximum ncpus allowed is 64. See MAX_NCPUS variable in sched_config.cpp of the BOINC source code
+At the time of writing (version 7.5.0) the maximum ncpus allowed is 64. See MAX_NCPUS variable in sched_config.cpp of the BOINC source code
+
+
+LANGUAGE
+
+All text in the script (output messages and comments) are written in italian. I don't know if I ever will translate it to english. 
 
 
 WINDOWS USERS

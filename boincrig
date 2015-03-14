@@ -341,6 +341,7 @@ bunker () {
 		# Legge log per risultato richiesta
 		while read line; do
 
+		# Notare che questa parte viene eseguita soltanto quando viene emessa una riga nel log
 		if [ -z "$tailsetupdone" ]; then
 			# Prende tutti i processi tailf nipoti del processo principale
 			tailpid="$(pgrep -d ' ' -P $(pgrep -d ',' -P $PID) tailf)"
@@ -412,6 +413,8 @@ bunker () {
 				[[ "$line" =~ failed: ]] && echo 'Problema di rete'
 				#if	[[ "$line" =~ 'Timeout was reached' ]]; then
 				#elif	[[ "$line" =~ 'Error 403' ]]; then
+				# Nel caso il ripristino non sia già avvenuto regolarmente per altri messaggi
+				resetask
 				tailtimeout
 
 			#Scheduler request completed
@@ -427,6 +430,8 @@ bunker () {
 						unset got0count
 					fi
 				fi
+				# Nel caso il ripristino non sia già avvenuto regolarmente per altri messaggi
+				resetask
 				tailtimeout
 
 			elif	[[ "$line" =~ 'last request too recent' ]]; then
@@ -440,6 +445,7 @@ bunker () {
 				else
 					echo
 				fi
+				# Eseguire resetask anche qui è esagerato
 
 			elif	[[ "$line" =~ 'This computer has finished a daily quota of'.*'tasks' ]] || \
 				[[ "$line" =~ '(reached daily quota of'.*'results)' ]]; then
@@ -469,6 +475,9 @@ bunker () {
 				kill -0 $gentimeoutpid 2> /dev/null && kill $gentimeoutpid
 				kill -0 $timeoutpid 2> /dev/null && kill $timeoutpid
 
+				# Nel caso il ripristino non sia già avvenuto regolarmente per altri messaggi
+				resetask
+
 				updelay=$(echo "$line" | sed 's/.*delay of \| second.*//g')
 				echo "Prossimo update tra $updelay secondi ($(date --date=@$(($(date +%s)+updelay)) +%T))"
 				# Un semplice break non sembra uccidere il processo tailf
@@ -478,7 +487,7 @@ bunker () {
 		fi
 		done < <(tailf -0 $STDOUT_FILE)
 		unset tailsetupdone
-		# Nel caso intervenga un timeout
+		# Nel caso intervenga il timeout generale. Tutti i messaggi che chiamano tailtimeout chiamano anche resetask
 		resetask
 	done
 
@@ -525,7 +534,8 @@ DESCRIZIONE
                         - Attiva ed abilita la richiesta di lavoro del progetto scelto
                         - Riattiva le unità di lavoro sospese per renderne possibile la richiesta di nuovo
                         - Attende il tempo notificato dal progetto tra un richiesta e l'altra
-                        - Simula una quantità di core progressivamente maggiore ad ogni richiesta per ottenere più lavoro
+                        - Simula una quantità di core (ncpus) progressivamente maggiore ad ogni richiesta per ottenere più lavoro
+				L'impostazione viene mantenuta per il tempo minimo necessario per la richiasta in modo da minimizzare il rischio di saturazione delle risorse.
 	        L'esecuzione termina quando il progetto restituisce un messaggio di negazione di ulteriore lavoro o dopo un certo numero di richieste con esito negativo.
 
 
