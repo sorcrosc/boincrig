@@ -394,7 +394,7 @@ bunker () {
 						echo 'Raggiunto limite massimo di tasks da eseguire'
 						break 2
 						;;
-					*"don't need")
+					*"don't need"*)
 						echo "Non c'è necessità di ulteriore lavoro"
 						progncpus
 						;;
