@@ -730,8 +730,8 @@ fi
 suspdelay=1
 
 # Variabili per modalità bunker
-# Il massimo ncpus attualmente è 64 (boinc 7.5.0)
-: ${ncpus_MAX:=64}
+# Il massimo ncpus selezionabile per evitare esagerazioni. Vedi come riferimento variabile MAX_NCPUS in sched_config.cpp del codice BOINC
+: ${ncpus_MAX:=128}
 # Timeout generale per riavvio ciclo update. Almeno 120 secondi perché è il tempo di risposta per errore di rete dopo richiesta di update
 : ${GENTIMEOUTDELAY:=135}
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
