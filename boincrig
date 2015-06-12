@@ -226,6 +226,8 @@ bunker () {
 	[ "$ncpus" ] && [[ ! "$ncpus" =~ ^[0-9]+$ ]] && echo 'ncpus non valido' >&2 && exit 1
 	[ "$ncpus" ] &&	((ncpus<=ncpus_orig)) && echo "Ignoro ncpus $ncpus perché inferiore o uguale ai cores reali" && unset ncpus
 	((ncpus>ncpus_MAX)) && echo "Il valore massimo per ncpus è $ncpus_MAX" && ((ncpus=ncpus_MAX))
+	[ "$ncpus" ] && [ "$brute" = yes  ] && ((ncpus_prog=ncpus))
+
 	[ ! "$interactive" = no ] && echo -e '\nImposta un adeguato numero di giorni di work buffer' && read -p 'Procedo? [Si]' startno
 	[ "$startno" ] && exit 1 || echo "In esecuzione"
 	# Attiva il progetto ed abilita la richiesta di nuove tasks
@@ -574,6 +576,9 @@ OPZIONI
         --ncpus   N
                 Simula un determinato numero di core massimo in modalità bunker.
 
+	--brute
+		Seleziona il valore massimo impostato di ncpus sin dalla prima richiesta anziché fare l'incremento progressivo
+
         --delay   N
                 Forza un determinato intervallo di secondi di attesa tra una richiesta e l'altra in modalità bunker.
 		E'possibile usare i moltiplicatori m ed h per minuti ed ore (esempio: 2m = 2 minuti).
@@ -655,6 +660,10 @@ HELP
 		ncpus="$1"
 		shift
 		;;
+	--brute)
+		shift
+		brute=yes
+		;;
 	--delay)
 		shift
 		if [[ "$1" =~ ^[0-9]+[mMhH]?$ ]]; then
@@ -731,7 +740,7 @@ suspdelay=1
 
 # Variabili per modalità bunker
 # Il massimo ncpus selezionabile per evitare esagerazioni. Vedi come riferimento variabile MAX_NCPUS in sched_config.cpp del codice BOINC
-: ${ncpus_MAX:=128}
+: ${ncpus_MAX:=256}
 # Timeout generale per riavvio ciclo update. Almeno 120 secondi perché è il tempo di risposta per errore di rete dopo richiesta di update
 : ${GENTIMEOUTDELAY:=135}
 # Timeout per riavvio ciclo update se il progetto non restituisce il tempo di attesa
