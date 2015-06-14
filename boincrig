@@ -513,12 +513,12 @@ while [ "$1" ]; do
 		cat << HELP
 
 NOME
-        ${0##*/} - Script multifunzione per compiere operazioni su BOINC
+        ${0##*/} - Script multifunzione per compiere operazioni sul client BOINC
 
 SINTASSI
-        ${0##*/} [--dir DIRECTORY] [--port PORT] [--percmin N] [--percmax N] [--ncpus N] [--delay N]
+        ${0##*/} [--dir DIRECTORY] [--port PORT] [--percmin N] [--percmax N] [--ncpus N] [--brute] [--delay N]
         ${0##*/} --suspend PROJECT [APPLICATION ...] [--dir DIRECTORY] [--port PORT] [--percmin N] [--percmax N]
-        ${0##*/} --bunker PROJECT [--dir DIRECTORY] [--port PORT] [--ncpus N] [--delay N]
+        ${0##*/} --bunker PROJECT [--dir DIRECTORY] [--port PORT] [--ncpus N] [--brute] [--delay N]
         ${0##*/} --list|--help
 
 DESCRIZIONE
@@ -537,7 +537,7 @@ DESCRIZIONE
                         - Riattiva le unità di lavoro sospese per renderne possibile la richiesta di nuovo
                         - Attende il tempo notificato dal progetto tra un richiesta e l'altra
                         - Simula una quantità di core (ncpus) progressivamente maggiore ad ogni richiesta per ottenere più lavoro
-				L'impostazione viene mantenuta per il tempo minimo necessario per la richiasta in modo da minimizzare il rischio di saturazione delle risorse.
+			    L'impostazione viene mantenuta per il tempo minimo necessario per la richiasta in modo da minimizzare il rischio di saturazione delle risorse.
 	        L'esecuzione termina quando il progetto restituisce un messaggio di negazione di ulteriore lavoro o dopo un certo numero di richieste con esito negativo.
 
 
@@ -545,6 +545,11 @@ DESCRIZIONE
         Se viene specificata da linea di comando la modalità di funzionamento non vengono fatte altre richieste all'utente e l'esecuzione procede con i parametri di default,
 	a meno che non siano stati specificati sempre da linea di comando.
         Alcuni parametri particolari sono accessibili solo da linea di comando.
+
+	La directory di lavoro è individuata in base a una lista di nomi scelti abitualmente per l'installazione.
+	Per le installazioni effettuate con lo script autoestraente ufficiale la directory BOINC è cercata nella home utente, nella posizione corrente o nella directory superiore.
+	Se la directory è chiamata BOINC (in maiuscolo) è utilizzato l'eseguibile boinccmd presente nella stessa.
+	Nel caso non sia trovata una directory o quella trovata non sia quella corretta è possibile specificarla con l'opzione --dir o con la variabile BOINCDIR.
 
 OPZIONI
         --help
@@ -700,21 +705,28 @@ done
 
 PID=$$
 
-DIRS="
-$BOINCDIR
+DIRS=(
+"$BOINCDIR"
+~/BOINC
+./BOINC
+../BOINC
 /var/lib/boinc
 /var/lib/boinc-client
-~/BOINC
 /cygdrive/c/ProgramData/BOINC
-"
+)
 
-IFS='	
-'
-for dir in $DIRS; do
+for dir in "${DIRS[@]}"; do
 	[ -d "$dir" ] && WORKING_DIR="$dir" && break
 done
 
-[ -z "$WORKING_DIR" ] && echo Directory di lavoro $BOINCDIR non trovata >&2 && exit 1
+if [ "$WORKING_DIR" ]; then
+	echo Utilizzo la directory "$WORKING_DIR"
+	echo
+	[[ "$WORKING_DIR" =~ BOINC$ ]] && PATH="$WORKING_DIR":"$PATH"
+else
+	echo Directory di lavoro non trovata >&2
+	exit 1
+fi
 
 if [[ "$WORKING_DIR" =~ /cygdrive/ ]]; then
 	boinccmd () {
@@ -722,9 +734,6 @@ if [[ "$WORKING_DIR" =~ /cygdrive/ ]]; then
 	export -f boinccmd
 	}
 fi
-
-IFS=' 	
-'
 
 STDOUT_FILE="$WORKING_DIR/stdoutdae.txt"
 RPC_PASSWD="$(< $WORKING_DIR/gui_rpc_auth.cfg)"
