@@ -210,7 +210,7 @@ suspend () {
 				fi
 			done
 		fi
-	done < <(tailf -0 $STDOUT_FILE)
+	done < <(tail -f -n 0 $STDOUT_FILE)
 }
 
 
@@ -305,7 +305,7 @@ bunker () {
 			sleep $TIMEOUTDELAY
 			if kill -0 $PID 2> /dev/null; then
 				echo 'Raggiunto timeout'
-				# Arresto il ciclo uccidendo tailf perché siamo in background
+				# Arresto il ciclo uccidendo tail -f perché siamo in background
 				kill -s SIGPIPE $tailpid
 			fi
 			) &
@@ -345,8 +345,8 @@ bunker () {
 
 		# Notare che questa parte viene eseguita soltanto quando viene emessa una riga nel log
 		if [ -z "$tailsetupdone" ]; then
-			# Prende tutti i processi tailf nipoti del processo principale
-			tailpid="$(pgrep -d ' ' -P $(pgrep -d ',' -P $PID) tailf)"
+			# Prende tutti i processi tail -f nipoti del processo principale
+			tailpid="$(pgrep -f -d ' ' -P $(pgrep -d ',' -P $PID) 'tail -f')"
 
 			# Timeout generale di sicurezza per riavvio del ciclo di update
 			(
@@ -356,7 +356,7 @@ bunker () {
 			sleep $GENTIMEOUTDELAY
 			if kill -0 $PID 2> /dev/null; then
 				echo 'Raggiunto timeout generale, forse qualcosa è andato storto'
-				# Arresto il ciclo uccidendo tailf perché siamo in background
+				# Arresto il ciclo uccidendo tail -f perché siamo in background
 				kill -s SIGPIPE $tailpid
 			fi
 			) &
@@ -482,12 +482,12 @@ bunker () {
 
 				updelay=$(echo "$line" | sed 's/.*delay of \| second.*//g')
 				echo "Prossimo update tra $updelay secondi ($(date --date=@$(($(date +%s)+updelay)) +%T))"
-				# Un semplice break non sembra uccidere il processo tailf
+				# Un semplice break non sembra uccidere il processo tail -f
 				kill -s SIGPIPE $tailpid
 				sleep $updelay
 			fi
 		fi
-		done < <(tailf -0 $STDOUT_FILE)
+		done < <(tail -f -n 0 $STDOUT_FILE)
 		unset tailsetupdone
 		# Nel caso intervenga il timeout generale. Tutti i messaggi che chiamano tailtimeout chiamano anche resetask
 		resetask
