@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# consente a break usato dentro a una funzione di interrompere i cicli iniziati prima della chiamata alla funzione
+shopt -s compat43
+
 # Funzione di selezione switch log ed opzioni
 cc () {
 
